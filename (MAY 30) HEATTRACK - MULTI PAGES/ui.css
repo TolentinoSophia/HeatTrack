@@ -348,8 +348,9 @@ img { max-width: 100%; height: auto; display: block; }
     justify-content: center;
     background: rgba(15,23,42,0.04);
     color: var(--ht-surface-400);
-    font-weight: 600;
-    font-size: 0.95rem;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
     z-index: 8;
     pointer-events: none;
 }
@@ -1941,7 +1942,7 @@ img { max-width: 100%; height: auto; display: block; }
 }
 
 .ht-camera.camera-feed--offline::after {
-    content: "Camera streams disabled";
+    content: attr(data-offline-text);
     position: absolute;
     inset: 0;
     z-index: 3;
