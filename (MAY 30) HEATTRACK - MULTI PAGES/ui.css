@@ -2466,10 +2466,26 @@ img { max-width: 100%; height: auto; display: block; }
     box-shadow: var(--ht-shadow-xs);
     transition: border-color 0.15s, box-shadow 0.15s;
 }
+
 .ht-select:hover { border-color: rgba(249, 115, 22, 0.25); }
 .ht-select:focus-visible {
     border-color: var(--ht-thermal-500);
     box-shadow: var(--ht-focus-ring);
+}
+
+/* Responsive select sizing for consistency with buttons */
+@media (max-width: 767px) {
+    .ht-select {
+        padding: 0.55rem 0.8rem;
+        min-height: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .ht-select {
+        padding: 0.5rem 0.7rem;
+        min-height: 1.875rem;
+    }
 }
 
 .ht-table-scroll {
@@ -5204,7 +5220,6 @@ html[data-boot-route="insights"] #view-analytics {
     }
     
     .ht-select {
-        font-size: 9px;
         padding: 0.3rem 0.5rem;
     }
     
@@ -5235,7 +5250,6 @@ html[data-boot-route="insights"] #view-analytics {
     }
     
     .ht-select {
-        font-size: 8px;
         padding: 0.25rem 0.4rem;
     }
     
