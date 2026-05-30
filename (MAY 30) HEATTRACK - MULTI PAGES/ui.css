@@ -1319,6 +1319,7 @@ img { max-width: 100%; height: auto; display: block; }
     font-size: var(--ht-text-base);
     line-height: var(--ht-leading-relaxed);
     color: var(--ht-surface-400);
+    text-align: justify;
 }
 
 .ht-jump-card__cta {
