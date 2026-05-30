@@ -73,7 +73,6 @@ const state = {
     sensorHistory: {
         temp: [],
         humidity: [],
-        heatIndex: [],
         labels: []
     },
     currentPage: 1,
@@ -168,7 +167,6 @@ function initSystem() {
     for (let i = 0; i < 20; i++) {
         state.sensorHistory.temp.push(parseFloat((32 + Math.random() * 8).toFixed(1)));
         state.sensorHistory.humidity.push(parseFloat((55 + Math.random() * 30).toFixed(1)));
-        state.sensorHistory.heatIndex.push(parseFloat((34 + Math.random() * 10).toFixed(1)));
         state.sensorHistory.labels.push('');
     }
 
@@ -894,82 +892,39 @@ function simulateSensorUpdate() {
 
     const temp = parseFloat((30 + Math.random() * 12).toFixed(1));
     const humidity = parseFloat((50 + Math.random() * 35).toFixed(1));
-    const heatIndex = parseFloat((temp + (humidity - 50) * 0.1 + Math.random() * 2).toFixed(1));
-    const thi = parseFloat((0.8 * temp + 0.01 * humidity * (0.9 * temp - 14.3) + 46.3).toFixed(1));
-
     state.sensorHistory.temp.push(temp);
     state.sensorHistory.humidity.push(humidity);
-    state.sensorHistory.heatIndex.push(heatIndex);
     state.sensorHistory.labels.push('');
 
     // Keep only last 30 readings
     if (state.sensorHistory.temp.length > 30) {
         state.sensorHistory.temp.shift();
         state.sensorHistory.humidity.shift();
-        state.sensorHistory.heatIndex.shift();
         state.sensorHistory.labels.shift();
     }
 
-    updateSensorReadings(temp, humidity, heatIndex, thi);
+    updateSensorReadings(temp, humidity);
     updateEnvChart();
 }
 
-function updateSensorReadings(temp, humidity, heatIndex, thi) {
+function updateSensorReadings(temp, humidity) {
     // Default values if not provided
     temp = temp || state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34.5;
     humidity = humidity || state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1] || 68.2;
-    heatIndex = heatIndex || state.sensorHistory.heatIndex[state.sensorHistory.heatIndex.length - 1] || 36.8;
-    thi = thi || parseFloat((0.8 * temp + 0.01 * humidity * (0.9 * temp - 14.3) + 46.3).toFixed(1));
 
     // Temperature
-    document.getElementById('tempValue').textContent = temp.toFixed(1);
+    const tempEl = document.getElementById('tempValue');
+    if (tempEl) tempEl.textContent = temp.toFixed(1);
     const tempPercent = Math.min(100, Math.max(0, ((temp - 20) / 30) * 100));
-    document.getElementById('tempBar').style.width = tempPercent + '%';
+    const tempBar = document.getElementById('tempBar');
+    if (tempBar) tempBar.style.width = tempPercent + '%';
 
     // Humidity
-    document.getElementById('humidValue').textContent = humidity.toFixed(1);
+    const humidEl = document.getElementById('humidValue');
+    if (humidEl) humidEl.textContent = humidity.toFixed(1);
     const humidPercent = Math.min(100, Math.max(0, humidity));
-    document.getElementById('humidBar').style.width = humidPercent + '%';
-
-    // Heat Index
-    document.getElementById('heatIndexValue').textContent = heatIndex.toFixed(1);
-    const hiPercent = Math.min(100, Math.max(0, ((heatIndex - 20) / 30) * 100));
-    document.getElementById('heatIndexBar').style.width = hiPercent + '%';
-
-    const hiStatus = document.getElementById('heatIndexStatus');
-    if (heatIndex >= 45) {
-        hiStatus.textContent = 'DANGER';
-        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--danger';
-    } else if (heatIndex >= 40) {
-        hiStatus.textContent = 'EXTREME CAUTION';
-        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--warn';
-    } else if (heatIndex >= 35) {
-        hiStatus.textContent = 'CAUTION';
-        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--caution';
-    } else {
-        hiStatus.textContent = 'NORMAL';
-        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--normal';
-    }
-
-    // THI
-    document.getElementById('thiValue').textContent = thi.toFixed(1);
-    const thiPercent = Math.min(100, Math.max(0, ((thi - 60) / 30) * 100));
-    document.getElementById('thiBar').style.width = thiPercent + '%';
-
-    const thiStatus = document.getElementById('thiStatus');
-    if (thi >= 82) {
-        thiStatus.textContent = 'SEVERE';
-        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--danger';
-    } else if (thi >= 75) {
-        thiStatus.textContent = 'DANGER';
-        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--warn';
-    } else if (thi >= 68) {
-        thiStatus.textContent = 'ALERT';
-        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--caution';
-    } else {
-        thiStatus.textContent = 'NORMAL';
-        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--normal';
-    }
+    const humidBar = document.getElementById('humidBar');
+    if (humidBar) humidBar.style.width = humidPercent + '%';
 }
 
 // ============================================
@@ -1477,13 +1432,11 @@ function getRecommendationPreventionTips(rec) {
 
 function getRecommendationEnvInsights(rec, currentTemp) {
     const humid = state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1];
-    const hi = state.sensorHistory.heatIndex[state.sensorHistory.heatIndex.length - 1];
     const humidStr = humid != null ? `${humid.toFixed(0)}%` : 'unknown';
-    const hiStr = hi != null ? `${hi.toFixed(0)}°C` : 'unknown';
 
     return [
         `Ambient ${currentTemp.toFixed(1)}°C, humidity ${humidStr}.`,
-        `Heat index ${hiStr} shows how moisture raises stress.`,
+        `Humidity affects evaporative cooling and heat stress risk.`,
         rec.severity === 'CRITICAL' || rec.severity === 'HIGH'
             ? 'Heat risk is high now — cool the space first.'
             : 'Conditions are moderate but should be watched closely.'
@@ -1679,18 +1632,7 @@ function initCharts() {
                     pointRadius: 0,
                     pointHoverRadius: 4,
                 },
-                {
-                    label: 'Heat Index (°C)',
-                    data: state.sensorHistory.heatIndex,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    borderDash: [5, 5],
-                }
+                // Heat Index dataset removed
             ]
         },
         options: {
@@ -1878,7 +1820,6 @@ function updateEnvChart() {
     envChart.data.labels = state.sensorHistory.labels;
     envChart.data.datasets[0].data = state.sensorHistory.temp;
     envChart.data.datasets[1].data = state.sensorHistory.humidity;
-    envChart.data.datasets[2].data = state.sensorHistory.heatIndex;
     envChart.update('none');
 }
 
