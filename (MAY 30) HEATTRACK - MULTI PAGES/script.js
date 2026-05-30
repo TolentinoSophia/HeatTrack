@@ -1859,23 +1859,30 @@ function updateSeverityChart() {
 // EVENT LISTENERS
 // ============================================
 function setupEventListeners() {
+    const alertBtn = document.getElementById('alertBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+
     // Alert button
-    document.getElementById('alertBtn').addEventListener('click', () => {
+    alertBtn?.addEventListener('click', () => {
         const panel = document.getElementById('alertPanel');
         const settingsPanel = document.getElementById('settingsPanel');
         panel.classList.toggle('u-hidden');
+        alertBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
         if (!panel.classList.contains('u-hidden')) {
             settingsPanel.classList.add('u-hidden');
+            settingsBtn?.classList.remove('is-active');
         }
     });
 
     // Settings button
-    document.getElementById('settingsBtn').addEventListener('click', () => {
+    settingsBtn?.addEventListener('click', () => {
         const panel = document.getElementById('settingsPanel');
         const alertPanel = document.getElementById('alertPanel');
         panel.classList.toggle('u-hidden');
+        settingsBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
         if (!panel.classList.contains('u-hidden')) {
             alertPanel.classList.add('u-hidden');
+            alertBtn?.classList.remove('is-active');
         }
     });
 
@@ -1883,14 +1890,14 @@ function setupEventListeners() {
     document.addEventListener('click', (e) => {
         const alertPanel = document.getElementById('alertPanel');
         const settingsPanel = document.getElementById('settingsPanel');
-        const alertBtn = document.getElementById('alertBtn');
-        const settingsBtn = document.getElementById('settingsBtn');
         if (!alertPanel || !settingsPanel || !alertBtn || !settingsBtn) return;
         if (!alertPanel.contains(e.target) && !alertBtn.contains(e.target)) {
             alertPanel.classList.add('u-hidden');
+            alertBtn.classList.remove('is-active');
         }
         if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
             settingsPanel.classList.add('u-hidden');
+            settingsBtn.classList.remove('is-active');
         }
     });
 
