@@ -164,36 +164,8 @@ function initSystem() {
     intervals.clock = setInterval(updateTime, 1000);
     setCustomRangeMaxDate();
 
-    // Initialize sensor history with some data
-    for (let i = 0; i < 20; i++) {
-        state.sensorHistory.temp.push(parseFloat((32 + Math.random() * 8).toFixed(1)));
-        state.sensorHistory.humidity.push(parseFloat((55 + Math.random() * 30).toFixed(1)));
-        state.sensorHistory.labels.push('');
-    }
-
-    // Generate initial detection data
-    for (let i = 0; i < 15; i++) {
-        const isStress = Math.random() > 0.6;
-        const detection = generateDetection(isStress);
-        detection.timestamp = new Date(Date.now() - Math.random() * 3600000 * 6);
-        state.detections.push(detection);
-    }
-
-    // Sort detections by timestamp (newest first)
-    state.detections.sort((a, b) => b.timestamp - a.timestamp);
-
-    // Seed initial alerts from any heat stress detections so notifications are visible
-    const initialAlerts = state.detections.filter(d => d.isHeatStress).slice(0, 3).reverse();
-    if (initialAlerts.length === 0) {
-        const seeded = generateDetection(true);
-        seeded.timestamp = new Date(Date.now() - 900000);
-        state.detections.unshift(seeded);
-        initialAlerts.push(seeded);
-    }
-    initialAlerts.forEach(showAlert);
-    if (initialAlerts.length > 0) {
-        showToast(initialAlerts[initialAlerts.length - 1]);
-    }
+    // Start with no seeded sensor or detection data.
+    // The UI is ready to display real incoming readings and events dynamically.
 
     // Update stats
     updateStats();
@@ -328,20 +300,10 @@ function onAboutPageScroll() {
 function syncDashboardIntervals() {
     const want = isMonitorRoute();
     if (want) {
-        if (!intervals.sensor) {
-            intervals.sensor = setInterval(simulateSensorUpdate, 3000);
-            intervals.detection = setInterval(simulateDetection, 5000);
+        if (!intervals.annotations) {
             intervals.annotations = setInterval(updateAnnotations, 3000);
         }
     } else {
-        if (intervals.sensor) {
-            clearInterval(intervals.sensor);
-            intervals.sensor = null;
-        }
-        if (intervals.detection) {
-            clearInterval(intervals.detection);
-            intervals.detection = null;
-        }
         if (intervals.annotations) {
             clearInterval(intervals.annotations);
             intervals.annotations = null;
@@ -515,7 +477,7 @@ function updateTime() {
     const fpsEls = ['normalFps', 'thermalFps'];
     fpsEls.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.textContent = `${(28 + Math.random() * 4).toFixed(1)} FPS | ${id.includes('normal') ? '640x480' : '320x240'}`;
+        if (el) el.textContent = '-- FPS';
     });
 }
 
@@ -909,71 +871,73 @@ function applyDetectionCountsToStats(counts = getDetectionCounts()) {
 // SENSOR SIMULATION
 // ============================================
 function simulateSensorUpdate() {
-    if (!isMonitorRoute()) return;
-
-    const temp = parseFloat((30 + Math.random() * 12).toFixed(1));
-    const humidity = parseFloat((50 + Math.random() * 35).toFixed(1));
-    state.sensorHistory.temp.push(temp);
-    state.sensorHistory.humidity.push(humidity);
-    state.sensorHistory.labels.push('');
-
-    // Keep only last 30 readings
-    if (state.sensorHistory.temp.length > 30) {
-        state.sensorHistory.temp.shift();
-        state.sensorHistory.humidity.shift();
-        state.sensorHistory.labels.shift();
-    }
-
-    updateSensorReadings(temp, humidity);
-    updateEnvChart();
+    // No automatic fake sensor updates are used in production-ready mode.
+    return;
 }
 
 function updateSensorReadings(temp, humidity) {
-    // Default values if not provided
-    temp = temp || state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34.5;
-    humidity = humidity || state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1] || 68.2;
+    const latestTemp = state.sensorHistory.temp.length > 0 ? state.sensorHistory.temp[state.sensorHistory.temp.length - 1] : null;
+    const latestHumidity = state.sensorHistory.humidity.length > 0 ? state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1] : null;
+    temp = typeof temp === 'number' ? temp : latestTemp;
+    humidity = typeof humidity === 'number' ? humidity : latestHumidity;
 
     // Temperature
     const tempEl = document.getElementById('tempValue');
-    if (tempEl) tempEl.textContent = temp.toFixed(1);
-    const tempPercent = Math.min(100, Math.max(0, ((temp - 20) / 30) * 100));
+    if (tempEl) tempEl.textContent = typeof temp === 'number' ? temp.toFixed(1) : '--';
+    const tempPercent = typeof temp === 'number' ? Math.min(100, Math.max(0, ((temp - 20) / 30) * 100)) : 0;
     const tempBar = document.getElementById('tempBar');
     if (tempBar) tempBar.style.width = tempPercent + '%';
 
     // Humidity
     const humidEl = document.getElementById('humidValue');
-    if (humidEl) humidEl.textContent = humidity.toFixed(1);
-    const humidPercent = Math.min(100, Math.max(0, humidity));
+    if (humidEl) humidEl.textContent = typeof humidity === 'number' ? humidity.toFixed(1) : '--';
+    const humidPercent = typeof humidity === 'number' ? Math.min(100, Math.max(0, humidity)) : 0;
     const humidBar = document.getElementById('humidBar');
     if (humidBar) humidBar.style.width = humidPercent + '%';
+
+    const tempTrendEl = document.getElementById('tempTrend');
+    if (tempTrendEl) {
+        let tempTrend = null;
+        if (state.sensorHistory.temp.length >= 2) {
+            const last = state.sensorHistory.temp[state.sensorHistory.temp.length - 1];
+            const prev = state.sensorHistory.temp[state.sensorHistory.temp.length - 2];
+            if (typeof last === 'number' && typeof prev === 'number') {
+                tempTrend = last - prev;
+            }
+        }
+        tempTrendEl.classList.toggle('ht-trend--up', tempTrend > 0);
+        tempTrendEl.classList.toggle('ht-trend--down', tempTrend < 0);
+        const tempTrendText = tempTrendEl.querySelector('span');
+        if (tempTrendText) {
+            tempTrendText.textContent = tempTrend === null ? '--' : `${tempTrend >= 0 ? '+' : ''}${tempTrend.toFixed(1)}`;
+        }
+    }
+
+    const humidTrendEl = document.getElementById('humidTrend');
+    if (humidTrendEl) {
+        let humidTrend = null;
+        if (state.sensorHistory.humidity.length >= 2) {
+            const last = state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1];
+            const prev = state.sensorHistory.humidity[state.sensorHistory.humidity.length - 2];
+            if (typeof last === 'number' && typeof prev === 'number') {
+                humidTrend = last - prev;
+            }
+        }
+        humidTrendEl.classList.toggle('ht-trend--up', humidTrend > 0);
+        humidTrendEl.classList.toggle('ht-trend--down', humidTrend < 0);
+        const humidTrendText = humidTrendEl.querySelector('span');
+        if (humidTrendText) {
+            humidTrendText.textContent = humidTrend === null ? '--' : `${humidTrend >= 0 ? '+' : ''}${humidTrend.toFixed(1)}`;
+        }
+    }
 }
 
 // ============================================
 // DETECTION SIMULATION
 // ============================================
 function simulateDetection() {
-    if (!isMonitorRoute()) return;
-    if (!state.cameraActive || !state.aiActive) return;
-
-    const isHeatStress = Math.random() > 0.55;
-    const detection = generateDetection(isHeatStress);
-    state.detections.unshift(detection);
-
-    // Keep only last 100 detections
-    if (state.detections.length > 100) state.detections.pop();
-
-    updateStats();
-    renderDetectionLogs();
-    renderLiveDetections();
-    renderRecommendations();
-    updateDetectionChart();
-    updateSeverityChart();
-
-    // Show alert for heat stress
-    if (isHeatStress) {
-        showAlert(detection);
-        showToast(detection);
-    }
+    // No automatic fake detection events are used in production-ready mode.
+    return;
 }
 
 function updateStats() {
@@ -994,87 +958,15 @@ function updateAnnotations() {
     const normalStats = document.getElementById('normalDuckStats');
     const thermalStats = document.getElementById('thermalDuckStats');
 
-    // Clear existing
     if (normalContainer) normalContainer.innerHTML = '';
     if (thermalContainer) thermalContainer.innerHTML = '';
 
-    if (!state.cameraActive || !state.aiActive) {
-        const statsHtml = `
-            <div>Ducks: 0</div>
-            <div>Normal: 0</div>
-            <div>Mild: 0</div>
-            <div>Heat Stress: 0</div>
-        `;
-        if (normalStats) normalStats.innerHTML = statsHtml;
-        if (thermalStats) thermalStats.innerHTML = statsHtml;
-        return;
-    }
-
-    // Simulate 2-5 detected ducks
-    const numDetections = 2 + Math.floor(Math.random() * 4);
-    let heatStressCount = 0;
-    let mildCount = 0;
-    let normalCount = 0;
-
-    for (let i = 0; i < numDetections; i++) {
-        const statusRoll = Math.random();
-        const status = statusRoll > 0.72 ? 'HEAT STRESS' : statusRoll > 0.35 ? 'MILD' : 'NORMAL';
-        if (status === 'HEAT STRESS') {
-            heatStressCount++;
-        } else if (status === 'MILD') {
-            mildCount++;
-        } else {
-            normalCount++;
-        }
-        const bodyTemp = status === 'HEAT STRESS' ? (41 + Math.random() * 3).toFixed(1) : status === 'MILD' ? (40.5 + Math.random() * 1.2).toFixed(1) : (39 + Math.random() * 1.5).toFixed(1);
-
-        // Random position within camera view
-        const x = 10 + Math.random() * 50; // percentage
-        const y = 15 + Math.random() * 50;
-        const w = 12 + Math.random() * 15;
-        const h = 10 + Math.random() * 12;
-        const confidence = (0.75 + Math.random() * 0.24).toFixed(0) * 100;
-
-        const colorClass = status === 'HEAT STRESS' ? 'ht-detect-box--stress' : status === 'MILD' ? 'ht-detect-box--mild' : 'ht-detect-box--ok';
-        const thermalClass = status === 'HEAT STRESS' ? 'ht-detect-box--thermal-stress' : status === 'MILD' ? 'ht-detect-box--thermal-mild' : 'ht-detect-box--thermal-ok';
-        const normalTagClass = status === 'HEAT STRESS' ? 'ht-detect-tag--flag-stress' : status === 'MILD' ? 'ht-detect-tag--flag-mild' : 'ht-detect-tag--flag-ok';
-        const thermalTagClass = status === 'HEAT STRESS' ? 'ht-detect-tag--tf-stress' : status === 'MILD' ? 'ht-detect-tag--tf-mild' : 'ht-detect-tag--tf-ok';
-        const labelText = status === 'HEAT STRESS' ? 'ELEVATED' : status === 'MILD' ? 'MILD' : 'NORMAL';
-
-        // Normal camera annotation
-        const normalBox = document.createElement('div');
-        normalBox.className = `detection-box ${colorClass}`;
-        normalBox.style.cssText = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
-        normalBox.innerHTML = `
-            <div class="ht-detect-cap">
-                <span class="ht-detect-tag ${normalTagClass}">${labelText}</span>
-            </div>
-            <div class="ht-detect-meta ${status === 'HEAT STRESS' ? 'ht-detect-meta--rgb-stress' : status === 'MILD' ? 'ht-detect-meta--rgb-ok' : 'ht-detect-meta--rgb-ok'}">
-                ${bodyTemp}°C | HI:${(parseFloat(bodyTemp) + 2 + Math.random() * 3).toFixed(1)}°C
-            </div>
-        `;
-        normalContainer.appendChild(normalBox);
-
-        // Thermal camera annotation
-        const thermalBox = document.createElement('div');
-        thermalBox.className = `detection-box ${thermalClass}`;
-        thermalBox.style.cssText = `left:${x + 2}%;top:${y + 3}%;width:${w - 2}%;height:${h - 2}%`;
-        thermalBox.innerHTML = `
-            <div class="ht-detect-cap">
-                <span class="ht-detect-tag ${thermalTagClass}">${labelText}</span>
-            </div>
-            <div class="ht-detect-meta ${status === 'HEAT STRESS' ? 'ht-detect-meta--th-stress' : status === 'MILD' ? 'ht-detect-meta--th-ok' : 'ht-detect-meta--th-ok'}">
-                ${bodyTemp}°C | HI:${(parseFloat(bodyTemp) + 2 + Math.random() * 3).toFixed(1)}°C
-            </div>
-        `;
-        thermalContainer.appendChild(thermalBox);
-    }
-
+    const counts = getDetectionCounts();
     const statsHtml = `
-        <div>Ducks: ${numDetections}</div>
-        <div>Normal: ${normalCount}</div>
-        <div>Mild: ${mildCount}</div>
-        <div>Heat Stress: ${heatStressCount}</div>
+        <div>Ducks: ${counts.total}</div>
+        <div>Normal: ${counts.normal}</div>
+        <div>Mild: ${counts.mild}</div>
+        <div>Heat Stress: ${counts.stress}</div>
     `;
     if (normalStats) normalStats.innerHTML = statsHtml;
     if (thermalStats) thermalStats.innerHTML = statsHtml;
@@ -1107,49 +999,54 @@ function renderDetectionLogs() {
     const startIndex = (state.currentPage - 1) * state.pageSize;
     const pageData = filtered.slice(startIndex, startIndex + state.pageSize);
 
-    tbody.innerHTML = pageData.map(d => {
-        const sevPill = d.severity === 'CRITICAL' ? 'ht-pill ht-pill--critical' :
-            d.severity === 'HIGH' ? 'ht-pill ht-pill--high' :
-            d.severity === 'MODERATE' ? 'ht-pill ht-pill--moderate' :
-            'ht-pill ht-pill--low';
-
-        const statusWrap = d.status === 'HEAT STRESS' ? 'ht-log-status ht-log-status--stress' : d.status === 'MILD' ? 'ht-log-status ht-log-status--warn' : 'ht-log-status ht-log-status--ok';
-        const statusIcon = d.status === 'HEAT STRESS' ? 'alert-triangle' : d.status === 'MILD' ? 'sun' : 'check-circle';
-        const flash = d.status === 'HEAT STRESS' ? ' ht-log-row--flash' : '';
-        const tempClass = d.bodyTemp > 42 ? 'ht-log-temp--hi' : d.bodyTemp > 41 ? 'ht-log-temp--mid' : 'ht-log-temp--ok';
-
-        return `
-            <tr class="ht-log-row-clickable${flash}" data-detection-id="${d.id}">
-                <td class="ht-log-cell--mono">${formatTimestamp(d.timestamp)}</td>
-                <td>
-                    <div class="${statusWrap}">
-                        <i data-lucide="${statusIcon}"></i>
-                        <span>${d.status}</span>
-                    </div>
-                </td>
-                <td class="ht-log-cell--mono ${tempClass}">${d.bodyTemp}°C</td>
-                <td class="ht-log-cell--mono ht-log-dur">${d.duration}</td>
-                <td><span class="${sevPill}">${d.severity}</span></td>
+    if (!pageData.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="ht-footnote" style="text-align:center; padding:1.5rem 0;">No detections found. Live event data will populate here once available.</td>
             </tr>
         `;
-    }).join('');
+    } else {
+        tbody.innerHTML = pageData.map(d => {
+            const sevPill = d.severity === 'CRITICAL' ? 'ht-pill ht-pill--critical' :
+                d.severity === 'HIGH' ? 'ht-pill ht-pill--high' :
+                d.severity === 'MODERATE' ? 'ht-pill ht-pill--moderate' :
+                'ht-pill ht-pill--low';
+
+            const statusWrap = d.status === 'HEAT STRESS' ? 'ht-log-status ht-log-status--stress' : d.status === 'MILD' ? 'ht-log-status ht-log-status--warn' : 'ht-log-status ht-log-status--ok';
+            const statusIcon = d.status === 'HEAT STRESS' ? 'alert-triangle' : d.status === 'MILD' ? 'sun' : 'check-circle';
+            const flash = d.status === 'HEAT STRESS' ? ' ht-log-row--flash' : '';
+            const tempClass = d.bodyTemp > 42 ? 'ht-log-temp--hi' : d.bodyTemp > 41 ? 'ht-log-temp--mid' : 'ht-log-temp--ok';
+
+            return `
+                <tr class="ht-log-row-clickable${flash}" data-detection-id="${d.id}">
+                    <td class="ht-log-cell--mono">${formatTimestamp(d.timestamp)}</td>
+                    <td>
+                        <div class="${statusWrap}">
+                            <i data-lucide="${statusIcon}"></i>
+                            <span>${d.status}</span>
+                        </div>
+                    </td>
+                    <td class="ht-log-cell--mono ${tempClass}">${d.bodyTemp}°C</td>
+                    <td class="ht-log-cell--mono ht-log-dur">${d.duration}</td>
+                    <td><span class="${sevPill}">${d.severity}</span></td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.querySelectorAll('tr[data-detection-id]').forEach(row => {
+            row.addEventListener('click', () => {
+                const id = row.getAttribute('data-detection-id');
+                const detection = state.detections.find(item => item.id === id);
+                if (!detection) return;
+                const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] ?? null;
+                const rec = buildRecommendationFromDetection(detection);
+                openRecommendationModal(rec, currentTemp);
+            });
+        });
+    }
 
     document.getElementById('logCount').textContent = `Showing ${pageData.length} of ${filtered.length} records`;
     document.getElementById('pageInfo').textContent = `${state.currentPage}/${totalPages}`;
-
-    // Attach click handlers for rows that open recommendation details
-    tbody.querySelectorAll('tr[data-detection-id]').forEach(row => {
-        row.addEventListener('click', () => {
-            const id = row.getAttribute('data-detection-id');
-            const detection = state.detections.find(item => item.id === id);
-            if (!detection) return;
-            const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
-            const rec = buildRecommendationFromDetection(detection);
-            openRecommendationModal(rec, currentTemp);
-        });
-    });
-
-    // Reinitialize lucide icons for new elements
     lucide.createIcons();
 }
 
@@ -1157,6 +1054,11 @@ function renderLiveDetections() {
     const container = document.getElementById('liveDetections');
     if (!container) return;
     const recent = state.detections.slice(0, 8);
+
+    if (!recent.length) {
+        container.innerHTML = `<div class="ht-panel__note">No live detections available yet. As live data arrives, this list will update automatically.</div>`;
+        return;
+    }
 
     container.innerHTML = recent.map(d => {
         const rowClass = d.status === 'HEAT STRESS' ? 'ht-live-item ht-live-item--stress' : d.status === 'MILD' ? 'ht-live-item ht-live-item--mild' : 'ht-live-item ht-live-item--ok';
@@ -1185,37 +1087,46 @@ function renderRecommendations() {
     const container = document.getElementById('recommendationsList');
     const activeRecs = [];
 
-    // Get the latest heat stress detections
     const recentStress = state.detections.filter(d => d.isHeatStress).slice(0, 5);
+    const currentTemp = state.sensorHistory.temp.length > 0 ? state.sensorHistory.temp[state.sensorHistory.temp.length - 1] : null;
+    const tempAvailable = typeof currentTemp === 'number';
 
-    // General environmental recommendations based on current temp
-    const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
-    let envRecs = [];
-
-    if (currentTemp > 40) {
-        envRecs = recommendations.CRITICAL;
-    } else if (currentTemp > 37) {
-        envRecs = recommendations.HIGH;
-    } else if (currentTemp > 34) {
-        envRecs = recommendations.MODERATE;
-    } else {
-        envRecs = recommendations.LOW;
+    if (!tempAvailable && !recentStress.length) {
+        container.innerHTML = `
+            <div class="ht-footnote" style="text-align:center; padding:1.5rem 0; font-size:15px; line-height:1.6;">
+                No recommendations yet. Live sensor readings and detections are required to generate AI recommendations. This panel will update automatically once new data arrives.
+            </div>
+        `;
+        document.getElementById('recBadge').textContent = `0 Active`;
+        lucide.createIcons();
+        return;
     }
 
-    // Add environmental recommendations
+    let envRecs = recommendations.LOW;
+    if (tempAvailable) {
+        if (currentTemp > 40) {
+            envRecs = recommendations.CRITICAL;
+        } else if (currentTemp > 37) {
+            envRecs = recommendations.HIGH;
+        } else if (currentTemp > 34) {
+            envRecs = recommendations.MODERATE;
+        }
+    }
+
     envRecs.forEach(rec => {
         activeRecs.push({
             ...rec,
             id: `env-${rec.action}`,
             timestamp: formatTimestamp(new Date()),
-            severity: currentTemp > 40 ? 'CRITICAL' : currentTemp > 37 ? 'HIGH' : currentTemp > 34 ? 'MODERATE' : 'LOW',
+            severity: tempAvailable
+                ? currentTemp > 40 ? 'CRITICAL' : currentTemp > 37 ? 'HIGH' : currentTemp > 34 ? 'MODERATE' : 'LOW'
+                : 'LOW',
             bodyTemp: currentTemp,
             confidence: null,
-            isHeatStress: currentTemp > 34
+            isHeatStress: tempAvailable ? currentTemp > 34 : false
         });
     });
 
-    // Add duck-specific recommendations
     recentStress.forEach(d => {
         const recs = recommendations[d.severity] || recommendations.MODERATE;
         activeRecs.push({
@@ -1229,7 +1140,6 @@ function renderRecommendations() {
         });
     });
 
-    // Limit to 8 recommendations
     const displayRecs = activeRecs.slice(0, 8);
 
     container.innerHTML = displayRecs.map(r => {
@@ -1270,7 +1180,6 @@ function renderRecommendations() {
     });
 
     document.getElementById('recBadge').textContent = `${displayRecs.length} Active`;
-
     lucide.createIcons();
 }
 
@@ -1417,10 +1326,16 @@ function getRecommendationExplanation(rec, currentTemp) {
     const temp = rec.bodyTemp || currentTemp;
     const confidence = rec.confidence ? `${rec.confidence}%` : 'high';
     if (rec.isHeatStress) {
-        return `Heat stress is likely at ${temp.toFixed(1)}°C. This recommendation is based on thermal data with ${confidence} confidence, so act quickly to lower heat load.`;
+        if (typeof temp === 'number') {
+            return `Heat stress is likely at ${temp.toFixed(1)}°C. This recommendation is based on thermal data with ${confidence} confidence, so act quickly to lower heat load.`;
+        }
+        return `Heat stress is likely. This recommendation is based on available detection data and should be confirmed on-site.`;
     }
 
-    return `Current conditions are not critical, but the system recommends preventive cooling because temperatures are elevated around ${temp.toFixed(1)}°C.`;
+    if (typeof temp === 'number') {
+        return `Current conditions are not critical, but the system recommends preventive cooling because temperatures are elevated around ${temp.toFixed(1)}°C.`;
+    }
+    return `The system is awaiting live sensor values. Maintain monitoring and confirm conditions with on-site observation.`;
 }
 
 function getRecommendationPreventionTips(rec) {
@@ -1452,11 +1367,12 @@ function getRecommendationPreventionTips(rec) {
 }
 
 function getRecommendationEnvInsights(rec, currentTemp) {
-    const humid = state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1];
-    const humidStr = humid != null ? `${humid.toFixed(0)}%` : 'unknown';
+    const humidValue = state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1];
+    const humidStr = typeof humidValue === 'number' ? `${humidValue.toFixed(0)}%` : 'unknown';
+    const tempStr = typeof currentTemp === 'number' ? `${currentTemp.toFixed(1)}°C` : 'unknown';
 
     return [
-        `Ambient ${currentTemp.toFixed(1)}°C, humidity ${humidStr}.`,
+        `Ambient ${tempStr}, humidity ${humidStr}.`,
         `Humidity affects evaporative cooling and heat stress risk.`,
         rec.severity === 'CRITICAL' || rec.severity === 'HIGH'
             ? 'Heat risk is high now — cool the space first.'
@@ -1466,10 +1382,11 @@ function getRecommendationEnvInsights(rec, currentTemp) {
 
 function getRecommendationTempGuidance(rec, currentTemp) {
     const bodyTemp = rec.bodyTemp != null ? rec.bodyTemp : currentTemp;
+    const tempLabel = typeof bodyTemp === 'number' ? `${bodyTemp.toFixed(1)}°C` : 'unknown';
     const recheck = rec.severity === 'CRITICAL' ? '1–3 min' : rec.severity === 'HIGH' ? '10 min' : rec.severity === 'MODERATE' ? '15 min' : '30 min';
 
     return [
-        `Temperature: ${typeof bodyTemp === 'number' ? bodyTemp.toFixed(1) : bodyTemp}°C.`,
+        `Temperature: ${tempLabel}.`,
         `Recheck in ${recheck}.`,
         rec.confidence
             ? `Confidence ${rec.confidence}% — confirm with a quick visual check.`
@@ -1481,12 +1398,14 @@ function getRecommendationResultSummary(rec, currentTemp) {
     const counts = getDetectionCounts();
     const recheckMap = { CRITICAL: 'Immediately', HIGH: 'Within 10 min', MODERATE: 'Within 15 min', LOW: 'Next 30 min' };
     const duckCount = (n) => `${n} duck${n !== 1 ? 's' : ''}`;
+    const ambientTemp = typeof currentTemp === 'number' ? `${currentTemp.toFixed(1)}°C` : 'Unknown';
+    const detectedTemp = rec.bodyTemp != null ? `${rec.bodyTemp}°C` : ambientTemp;
 
     return [
         { label: 'Detection Time', value: rec.timestamp },
         { label: 'Severity Level', value: rec.severity },
-        { label: 'Detected Body Temp', value: rec.bodyTemp != null ? `${rec.bodyTemp}°C` : `${currentTemp.toFixed(1)}°C (ambient)` },
-        { label: 'Barn Ambient Temp', value: `${currentTemp.toFixed(1)}°C` },
+        { label: 'Detected Body Temp', value: detectedTemp },
+        { label: 'Barn Ambient Temp', value: ambientTemp },
         { label: 'Heat Stress Detected', value: duckCount(counts.stress) },
         { label: 'Normal Ducks', value: duckCount(counts.normal) },
         { label: 'Mild Detections', value: duckCount(counts.mild) },
@@ -1534,7 +1453,7 @@ function showAlert(detection) {
             const id = btn.getAttribute('data-alert-id');
             const selected = state.alerts.find(a => a.id === id);
             if (!selected) return;
-            const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
+            const currentTemp = state.sensorHistory.temp.length > 0 ? state.sensorHistory.temp[state.sensorHistory.temp.length - 1] : null;
             openRecommendationModal(buildRecommendationFromDetection(selected), currentTemp);
         });
     });
@@ -1702,7 +1621,7 @@ function initCharts() {
         data: {
             labels: detectionStatusLabels,
             datasets: [{
-                data: [state.stats.normalCount || 1, state.stats.mildCount || 1, state.stats.stressCount || 1],
+                data: [state.stats.normalCount || 0, state.stats.mildCount || 0, state.stats.stressCount || 0],
                 backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
                 borderColor: ['#16a34a', '#d97706', '#dc2626'],
                 borderWidth: 2,
@@ -1946,7 +1865,7 @@ function setupEventListeners() {
         if (e.target.closest('#closeToast')) return;
         const detection = state.lastToastDetection;
         if (!detection) return;
-        const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
+        const currentTemp = state.sensorHistory.temp.length > 0 ? state.sensorHistory.temp[state.sensorHistory.temp.length - 1] : null;
         openRecommendationModal(buildRecommendationFromDetection(detection), currentTemp);
     });
 
