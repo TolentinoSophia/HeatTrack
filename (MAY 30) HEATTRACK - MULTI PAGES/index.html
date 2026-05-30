@@ -667,7 +667,7 @@
                         </div>
                         <div class="ht-camera camera-feed" id="normalCameraContainer" title="Click to expand fullscreen">
                             <div class="camera-zoom-layer ht-camera__layer">
-                                <img id="normalFeed" src="http://static.photos/education/640x360/42" alt="Normal Camera Feed">
+                                <!-- RGB feed image removed to avoid static fallback when no camera is connected -->
                                 <canvas id="normalOverlay"></canvas>
                                 <div id="normalAnnotations" class="ht-camera__annotations"></div>
                             </div>
@@ -696,7 +696,7 @@
                         </div>
                         <div class="ht-camera camera-feed" id="thermalCameraContainer" title="Click to expand fullscreen">
                             <div class="camera-zoom-layer ht-camera__layer">
-                                <img id="thermalFeed" class="thermal-filter" src="http://static.photos/red/640x360/133" alt="Thermal Camera Feed">
+                                <!-- Thermal feed image removed to avoid static fallback when no camera is connected -->
                                 <canvas id="thermalOverlay"></canvas>
                                 <div id="thermalAnnotations" class="ht-camera__annotations"></div>
                             </div>
