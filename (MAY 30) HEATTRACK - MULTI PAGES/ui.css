@@ -2383,6 +2383,40 @@ img { max-width: 100%; height: auto; display: block; }
     align-items: center;
 }
 
+.ht-custom-range__item {
+    position: relative;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+.ht-custom-range__item .ht-select {
+    min-width: 12rem;
+    padding: 0.5rem 0.6rem;
+}
+.ht-custom-range__placeholder {
+    position: absolute;
+    left: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ht-surface-300);
+    pointer-events: none;
+    font-size: 0.875rem;
+}
+
+/* Small label beside date inputs to match ht-select typography */
+.ht-select-label {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 0.35rem;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ht-surface-200);
+}
+
+.ht-custom-range__item input:focus + .ht-custom-range__placeholder,
+.ht-custom-range__item input[data-has-value="true"] + .ht-custom-range__placeholder {
+    display: none;
+}
+
 @media (max-width: 900px) {
     .ht-log-panel .ht-panel__head {
         flex-direction: column;
