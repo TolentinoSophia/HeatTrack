@@ -2402,8 +2402,12 @@ img { max-width: 100%; height: auto; display: block; }
 
     .ht-log-panel .ht-toolbar .ht-custom-range {
         width: 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
+        flex: 1 1 auto;
+        min-width: 150px;
     }
 }
 
@@ -5263,12 +5267,17 @@ html[data-boot-route="insights"] #view-analytics {
         min-width: 0;
     }
     
-    .ht-footnote {
-        font-size: 9px;
+    .ht-log-panel .ht-toolbar .ht-custom-range {
+        width: 100%;
+        gap: 0.35rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
+        flex: 1 1 auto;
+        min-width: 140px;
     }
 }
 
-/* Ensure bullet text fills remaining space and is justified aligned to first line */
 .ht-bullets li > *:last-child {
     flex: 1 1 auto;
     text-align: justify;
