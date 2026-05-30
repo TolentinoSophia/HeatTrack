@@ -2036,7 +2036,9 @@ img { max-width: 100%; height: auto; display: block; }
     grid-template-columns: repeat(2, 1fr);
 }
 @media (min-width: 640px) {
-    .ht-sensor-grid { grid-template-columns: repeat(4, 1fr); }
+    /* Use flexible columns so available tiles expand to fill the row.
+       This prevents empty whitespace when fewer tiles are present. */
+    .ht-sensor-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 }
 
 .ht-sensor-tile {
