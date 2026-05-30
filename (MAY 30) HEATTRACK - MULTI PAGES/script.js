@@ -522,7 +522,7 @@ function updateTime() {
 
 function formatTimestamp(date) {
     return date.toLocaleString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
+        month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         hour12: false
     });
@@ -1372,12 +1372,11 @@ function openRecommendationModal(rec, currentTemp) {
             </div>
         </div>
 
-        <div class="ht-disclaimer">
-            <i data-lucide="info"></i>
-            <div>
-                <p class="ht-disclaimer__label">Disclaimer</p>
-                <p class="ht-prose">These results and recommendations are assistive only and may contain errors. Always confirm with direct on-site observation of the flock and follow your established farm protocol or veterinary guidance before taking critical action.</p>
-            </div>
+        <div class="ht-modal-callout">
+            <h4><i data-lucide="info"></i> <span>Disclaimer</span></h4>
+            <p>
+                These results and recommendations are assistive only and may contain errors. Always confirm with direct on-site observation of the flock and follow your established farm protocol or veterinary guidance before taking critical action.
+            </p>
         </div>
     `;
 
@@ -1805,8 +1804,13 @@ function initCharts() {
                 x: {
                     grid: { display: false },
                     ticks: {
-                        color: '#2c3847',
-                        font: { size: 13, family: 'Syne, system-ui, sans-serif' },
+                        color: '#475569',
+                        font: {
+                            size: 12,
+                            family: 'DM Sans, system-ui, sans-serif',
+                            style: 'normal',
+                            weight: '400',
+                        },
                     }
                 },
                 y: {
@@ -1816,7 +1820,12 @@ function initCharts() {
                     },
                     ticks: {
                         color: '#475569',
-                        font: { size: 10, family: 'JetBrains Mono' },
+                        font: {
+                            size: 12,
+                            family: 'DM Sans, system-ui, sans-serif',
+                            style: 'normal',
+                            weight: '400',
+                        },
                         stepSize: 1,
                     }
                 }
@@ -1827,18 +1836,22 @@ function initCharts() {
                     backgroundColor: '#ffffff',
                     borderColor: '#e2e8f0',
                     borderWidth: 1,
+                    titleColor: '#475569',
                     bodyColor: '#1e293b',
+                    titleFont: { size: 10 },
                     bodyFont: { size: 11, family: 'JetBrains Mono' },
-                    padding: 8,
+                    padding: 10,
                     bodySpacing: 4,
                     cornerRadius: 8,
                     displayColors: true,
                     callbacks: {
-                        title: () => '',
+                        title: (items) => {
+                            const item = Array.isArray(items) ? items[0] : items;
+                            return item?.label || '';
+                        },
                         label: (context) => {
-                            const label = context.label || '';
                             const value = context.parsed?.y ?? context.raw;
-                            return `${label}: ${value}`;
+                            return `${value}`;
                         }
                     }
                 }
@@ -2015,27 +2028,284 @@ function setupEventListeners() {
         renderDetectionLogs();
     });
 
-    // Export logs
+    // Export logs: create a polished, self-contained HTML analytics report
     document.getElementById('exportLogs').addEventListener('click', () => {
-        const csvContent = [
-            ['Timestamp', 'Status', 'Body Temp (°C)', 'Confidence', 'Duration', 'Severity'],
-            ...state.detections.map(d => [
-                d.timestamp.toISOString(),
-                d.isHeatStress ? 'HEAT STRESS' : 'NORMAL',
-                d.bodyTemp,
-                (d.confidence * 100).toFixed(1) + '%',
-                d.duration,
-                d.severity
-            ])
-        ].map(row => row.join(',')).join('\n');
+        const counts = getDetectionCounts();
+        const now = new Date();
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `heattrack_log_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        function badgeHtml(text, severity) {
+            const classes = {
+                CRITICAL: '#c2410c',
+                HIGH: '#f97316',
+                MODERATE: '#fb923c',
+                LOW: '#94a3b8'
+            };
+            const color = classes[severity] || '#94a3b8';
+            return `<span style="display:inline-block;padding:4px 8px;border-radius:999px;background:${color};color:#fff;font-weight:700;font-size:0.85rem;">${text}</span>`;
+        }
+
+        function sparklineSVG(values = [], w = 220, h = 48, stroke = '#f97316') {
+            if (!values || values.length === 0) return '';
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+            const step = w / Math.max(1, values.length - 1);
+            const points = values.map((v, i) => `${(i * step).toFixed(2)},${(h - ((v - min) / range) * h).toFixed(2)}`);
+            const path = `<polyline fill="none" stroke="${stroke}" stroke-width="2" points="${points.join(' ')}" />`;
+            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${path}</svg>`;
+        }
+
+        // Build severity counts bars
+        const severityCounts = {
+            CRITICAL: counts.critical || 0,
+            HIGH: state.detections.filter(d => d.severity === 'HIGH').length,
+            MODERATE: state.detections.filter(d => d.severity === 'MODERATE').length,
+            LOW: state.detections.filter(d => d.severity === 'LOW').length
+        };
+
+        // Prepare rows for table
+        const rowsHtml = state.detections.map(d => {
+            const rec = buildRecommendationFromDetection(d);
+            const statusColor = d.isHeatStress ? '#c2410c' : '#10b981';
+            const severityColor = (d.severity === 'CRITICAL') ? '#c2410c' : (d.severity === 'HIGH') ? '#f97316' : (d.severity === 'MODERATE') ? '#fb923c' : '#94a3b8';
+            return `
+                <tr>
+                    <td>${formatTimestamp(d.timestamp)}</td>
+                    <td><span style="font-weight:700;color:${statusColor}">${d.isHeatStress ? 'HEAT STRESS' : 'NORMAL'}</span></td>
+                    <td><span style="background:${severityColor};color:#fff;padding:6px 10px;border-radius:999px;display:inline-block;font-weight:700">${d.severity}</span></td>
+                    <td style="text-align:right">${(d.bodyTemp!=null)?Number(d.bodyTemp).toFixed(1):''}°C</td>
+                    <td style="text-align:right">${(d.confidence!=null)?(d.confidence*100).toFixed(1)+'%':''}</td>
+                    <td>${d.duration||''}</td>
+                    <td>${rec?.action||''}</td>
+                    <td style="font-family:monospace">${d.id}</td>
+                </tr>`;
+        }).join('');
+
+        // Inline CSS matching dashboard aesthetic (modern, clean)
+        const css = `
+            :root{--accent:#f97316;--accent-2:#fb923c;--muted:#94a3b8;--bg:#f8fafc;--surface:#0f172a;--card:#ffffff}
+            html,body{margin:0;padding:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "DM Sans", sans-serif;background:var(--bg);color:var(--surface)}
+            .report-wrap{max-width:1100px;margin:32px auto;padding:28px}
+            .report-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+            .brand{display:flex;align-items:center;gap:12px}
+            .brand__logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent-2),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+            .brand__title{font-size:1.25rem;font-weight:800}
+            .meta{color:var(--muted);font-size:0.95rem}
+            .cards{display:flex;gap:12px;margin:18px 0}
+            .card{background:var(--card);padding:14px;border-radius:12px;flex:1;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+            .card h3{margin:0;font-size:0.85rem;color:var(--muted);font-weight:700}
+            .card p{margin:8px 0 0;font-size:1.45rem;font-weight:800}
+            table{width:100%;border-collapse:separate;border-spacing:0;margin-top:18px;background:var(--card);border-radius:12px;overflow:hidden}
+            thead th{background:linear-gradient(90deg,rgba(249,115,22,0.08),rgba(234,88,12,0.02));padding:12px 14px;text-align:left;color:var(--surface);font-weight:700}
+            tbody td{padding:12px 14px;border-top:1px solid rgba(15,23,42,0.04)}
+            tbody tr:nth-child(odd){background:rgba(15,23,42,0.02)}
+            tbody tr:hover{background:rgba(249,115,22,0.04)}
+            .section{margin-top:20px}
+            .small{font-size:0.85rem;color:var(--muted)}
+        `;
+
+        // Sensor sparkline (temp) using recent values
+        const tempValues = state.sensorHistory.temp.slice(-30);
+
+        const html = `<!doctype html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>HeatTrack — Analytics Report</title>
+            <style>${css}</style>
+        </head>
+        <body>
+            <div class="report-wrap">
+                <div class="report-head">
+                    <div class="brand">
+                        <div class="brand__logo">HT</div>
+                        <div>
+                            <div class="brand__title">HeatTrack — Analytics Report</div>
+                            <div class="meta">Generated ${now.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div class="meta">Total detections: <strong>${counts.total || state.detections.length}</strong></div>
+                </div>
+
+                <div class="cards">
+                    <div class="card">
+                        <h3>Heat Stress Events</h3>
+                        <p>${counts.stress}</p>
+                        <div class="small">Critical: ${counts.critical} • Mild: ${counts.mild} • Normal: ${counts.normal}</div>
+                    </div>
+                    <div class="card">
+                        <h3>Sensor Temperature (recent)</h3>
+                        <div style="margin-top:8px">${sparklineSVG(tempValues,220,48,'#f97316')}</div>
+                    </div>
+                    <div class="card">
+                        <h3>Severity Distribution</h3>
+                        <div style="margin-top:8px">
+                            ${Object.entries(severityCounts).map(([k,v])=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:10px;height:10px;border-radius:2px;background:${k==='CRITICAL'? '#c2410c':k==='HIGH'?'#f97316':k==='MODERATE'?'#fb923c':'#94a3b8'}"></div><div style="flex:1"><div style="font-weight:700">${k}</div><div class="small">${v} events</div></div><div style="font-weight:800">${v}</div></div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 style="margin:0 0 8px">Detections</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Status</th>
+                                <th>Severity</th>
+                                <th style="text-align:right">Body Temp</th>
+                                <th style="text-align:right">Confidence</th>
+                                <th>Duration</th>
+                                <th>Top Recommendation</th>
+                                <th>ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>`;
+
+        // Build Excel 2003 XML workbook (styled) so Excel opens with formatting, filters and frozen header
+        function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        const cols = [140,120,110,90,100,90,300,160];
+
+        const styles = `
+            <Style ss:ID="sBanner"><Font ss:Bold="1" ss:Size="20" ss:FontName="Calibri" ss:Color="#0F172A"/><Interior ss:Color="#0F172A" ss:Pattern="Solid"/><Alignment ss:Horizontal="Left" ss:Vertical="Center"/></Style>
+            <Style ss:ID="sSubtitle"><Font ss:Size="10" ss:FontName="Calibri" ss:Color="#94A3B8"/></Style>
+            <Style ss:ID="sKPI"><Font ss:Bold="1" ss:Size="18" ss:FontName="Calibri" ss:Color="#FFFFFF"/><Interior ss:Color="#0F172A" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>
+            <Style ss:ID="sKPIlabel"><Font ss:Size="9" ss:FontName="Calibri" ss:Color="#FFFFFF"/><Interior ss:Color="#0F172A" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>
+            <Style ss:ID="sHeader"><Font ss:Bold="1" ss:Size="11" ss:FontName="Calibri" ss:Color="#FFFFFF"/><Interior ss:Color="#0F172A" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/></Style>
+            <Style ss:ID="sOdd"><Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/><Font ss:Size="10" ss:FontName="Calibri" ss:Color="#0F172A"/></Style>
+            <Style ss:ID="sEven"><Interior ss:Color="#F3F4F6" ss:Pattern="Solid"/><Font ss:Size="10" ss:FontName="Calibri" ss:Color="#0F172A"/></Style>
+            <Style ss:ID="sDate"><NumberFormat ss:Format="yyyy\-mm\-dd\ hh:mm:ss"/></Style>
+            <Style ss:ID="sNumber"><NumberFormat ss:Format="0.0"/></Style>
+            <Style ss:ID="sPercent"><NumberFormat ss:Format="0.0%"/></Style>
+            <Style ss:ID="sSevCritical"><Interior ss:Color="#C2410C" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+            <Style ss:ID="sSevHigh"><Interior ss:Color="#F97316" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+            <Style ss:ID="sSevModerate"><Interior ss:Color="#FB923C" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+            <Style ss:ID="sSevLow"><Interior ss:Color="#60A5FA" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+            <Style ss:ID="sTempLow"><Interior ss:Color="#EBF8FF" ss:Pattern="Solid"/></Style>
+            <Style ss:ID="sTempMed"><Interior ss:Color="#FFF7ED" ss:Pattern="Solid"/></Style>
+            <Style ss:ID="sTempHigh"><Interior ss:Color="#FFF1F2" ss:Pattern="Solid"/></Style>
+            <Style ss:ID="sConfLow"><Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/></Style>
+            <Style ss:ID="sConfMed"><Interior ss:Color="#FEF3C7" ss:Pattern="Solid"/></Style>
+            <Style ss:ID="sConfHigh"><Interior ss:Color="#ECFCCB" ss:Pattern="Solid"/></Style>
+            <Style ss:ID="sWrap"><Alignment ss:WrapText="1" ss:Vertical="Top"/><Font ss:Size="10" ss:FontName="Calibri"/></Style>
+        `;
+
+        // Header row index where the table headers are placed (after banner + subtitle + spacer + KPI row + spacer)
+        const headerRowIndex = 6;
+
+        // Build rows XML with banner, subtitle and KPI cards
+        let rowsXml = '';
+
+        // Banner (merged)
+        rowsXml += `<Row ss:AutoFitHeight="1"><Cell ss:MergeAcross="${cols.length-1}" ss:StyleID="sBanner"><Data ss:Type="String">HeatTrack — Executive Analytics Report</Data></Cell></Row>`;
+        // Subtitle (generation timestamp)
+        rowsXml += `<Row ss:AutoFitHeight="1"><Cell ss:MergeAcross="${cols.length-1}" ss:StyleID="sSubtitle"><Data ss:Type="String">Generated: ${esc(now.toLocaleString())}</Data></Cell></Row>`;
+        // Spacer
+        rowsXml += `<Row/>`;
+
+        // KPI row — place five KPI values in first five columns
+        const avgTemp = (state.sensorHistory.temp.length>0)?(state.sensorHistory.temp.reduce((a,b)=>a+b,0)/state.sensorHistory.temp.length):0;
+        const avgConf = (state.detections.length>0)?(state.detections.reduce((s,d)=>s+(d.confidence||0),0)/state.detections.length):0;
+        const kpis = [
+            {label:'Total Detections', value:counts.total||state.detections.length, style:'sKPI'},
+            {label:'Heat Stress Events', value:counts.stress, style:'sKPI'},
+            {label:'Critical Events', value:counts.critical, style:'sSevCritical'},
+            {label:'Avg Body Temp (°C)', value:avgTemp.toFixed(1), style:'sKPI'},
+            {label:'Avg Confidence', value:(avgConf*100).toFixed(1)+'%', style:'sKPI'}
+        ];
+
+        rowsXml += '<Row ss:AutoFitHeight="1">';
+        for (let i=0;i<cols.length;i++) {
+            if (i < kpis.length) {
+                const k = kpis[i];
+                rowsXml += `<Cell ss:StyleID="${k.style}"><Data ss:Type="String">${esc(k.value.toString())}</Data></Cell>`;
+            } else {
+                rowsXml += '<Cell/>';
+            }
+        }
+        rowsXml += '</Row>';
+
+        // KPI labels row
+        rowsXml += '<Row ss:AutoFitHeight="1">';
+        for (let i=0;i<cols.length;i++) {
+            if (i < kpis.length) {
+                rowsXml += `<Cell ss:StyleID="sKPIlabel"><Data ss:Type="String">${esc(kpis[i].label)}</Data></Cell>`;
+            } else {
+                rowsXml += '<Cell/>';
+            }
+        }
+        rowsXml += '</Row>';
+
+        // Spacer before table
+        rowsXml += `<Row/>`;
+
+        // Header row with increased height
+        const headers = ['Timestamp','Status','Severity','Body Temp (°C)','Confidence','Duration','Top Recommendation','Detection ID'];
+        rowsXml += `<Row ss:StyleID="sHeader" ss:Height="26">`;
+        headers.forEach(h => { rowsXml += `<Cell><Data ss:Type="String">${esc(h)}</Data></Cell>`; });
+        rowsXml += '</Row>';
+
+        // Data rows with zebra striping, wrap for recommendation, and conditional styles
+        state.detections.forEach((d, idx) => {
+            const style = (idx % 2 === 0) ? 'sEven' : 'sOdd';
+            const tempStyle = (d.bodyTemp >= 45) ? 'sTempHigh' : (d.bodyTemp >= 42) ? 'sTempMed' : 'sTempLow';
+            const confStyle = (d.confidence >= 0.9) ? 'sConfHigh' : (d.confidence >= 0.8) ? 'sConfMed' : 'sConfLow';
+            const sevStyle = d.severity === 'CRITICAL' ? 'sSevCritical' : d.severity === 'HIGH' ? 'sSevHigh' : d.severity === 'MODERATE' ? 'sSevModerate' : 'sSevLow';
+            rowsXml += `<Row ss:StyleID="${style}">`;
+            rowsXml += `<Cell ss:StyleID="sDate"><Data ss:Type="DateTime">${d.timestamp.toISOString()}</Data></Cell>`;
+            rowsXml += `<Cell><Data ss:Type="String">${d.isHeatStress ? 'HEAT STRESS' : 'NORMAL'}</Data></Cell>`;
+            rowsXml += `<Cell ss:StyleID="${sevStyle}"><Data ss:Type="String">${esc(d.severity||'')}</Data></Cell>`;
+            rowsXml += `<Cell ss:StyleID="${tempStyle}"><Data ss:Type="Number">${(d.bodyTemp!=null)?Number(d.bodyTemp):''}</Data></Cell>`;
+            rowsXml += `<Cell ss:StyleID="${confStyle}"><Data ss:Type="Number">${(d.confidence!=null)?Number(d.confidence):''}</Data></Cell>`;
+            rowsXml += `<Cell><Data ss:Type="String">${esc(d.duration||'')}</Data></Cell>`;
+            const rec = buildRecommendationFromDetection(d);
+            rowsXml += `<Cell ss:StyleID="sWrap"><Data ss:Type="String">${esc(rec?.action||'')}</Data></Cell>`;
+            rowsXml += `<Cell><Data ss:Type="String">${esc(d.id||'')}</Data></Cell>`;
+            rowsXml += `</Row>`;
+        });
+
+        // Combine into full workbook
+        const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
+            <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+                xmlns:o="urn:schemas-microsoft-com:office:office"
+                xmlns:x="urn:schemas-microsoft-com:office:excel"
+                xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+                xmlns:html="http://www.w3.org/TR/REC-html40">
+                <Styles>${styles}</Styles>
+                <Worksheet ss:Name="HeatTrack Report">
+                    <Table>
+                        ${cols.map(c=>`<Column ss:Width="${c}" ss:AutoFitWidth="1"/>`).join('')}
+                        ${rowsXml}
+                    </Table>
+                    <AutoFilter x:Range="R${headerRowIndex}C1:R${headerRowIndex}C${cols.length}"/>
+                    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+                        <FreezePanes/>
+                        <FrozenNoSplit/>
+                        <SplitHorizontal>${headerRowIndex-1}</SplitHorizontal>
+                        <TopRowBottomPane>1</TopRowBottomPane>
+                        <ActivePane>2</ActivePane>
+                        <ProtectObjects>False</ProtectObjects>
+                        <ProtectScenarios>False</ProtectScenarios>
+                    </WorksheetOptions>
+                </Worksheet>
+            </Workbook>`;
+
+        const blob2 = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url2 = URL.createObjectURL(blob2);
+        const a2 = document.createElement('a');
+        a2.href = url2;
+        a2.download = `heattrack_report_${now.toISOString().slice(0,10)}.xls`;
+        a2.click();
+        URL.revokeObjectURL(url2);
     });
 
     // Fullscreen camera expansion
