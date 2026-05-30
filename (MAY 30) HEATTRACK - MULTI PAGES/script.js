@@ -190,6 +190,9 @@ function initSystem() {
     // Detect camera hardware and update the live view UI
     try {
         checkCameraDevices();
+        // Observe the monitor containers for media (img/video) changes so we can
+        // show "No Camera Connected" when no media is present and toggle the live badge.
+        observeMonitorMediaChanges();
     } catch (e) {
         // Non-blocking
     }
@@ -988,21 +991,13 @@ function updateCameraUI(hasCamera) {
 
     containers.forEach(container => {
         if (!container) return;
-        let notice = container.querySelector('.ht-camera__no-camera');
-        if (!hasCamera) {
-            if (!notice) {
-                notice = document.createElement('div');
-                notice.className = 'ht-camera__no-camera';
-                notice.setAttribute('role', 'status');
-                notice.textContent = 'No camera connected';
-                container.appendChild(notice);
-            }
-            container.classList.add('ht-camera--no-input');
-        } else {
-            if (notice) notice.remove();
-            container.classList.remove('ht-camera--no-input');
-        }
+        const notice = container.querySelector('.ht-camera__no-camera');
+        if (notice) notice.remove();
+        container.classList.remove('ht-camera--no-input');
+        container.removeAttribute('data-offline-text');
     });
+
+    updateSystemToggleStates();
 }
 
 function updateAnnotations() {
@@ -1567,9 +1562,8 @@ function updateSystemToggleStates() {
         container.title = state.cameraActive ? 'Click to expand fullscreen' : 'Camera streams are off';
     });
 
-    document.querySelectorAll('.ht-live-badge').forEach((badge) => {
-        badge.classList.toggle('ht-live-badge--disabled', !state.cameraActive);
-    });
+    // Live badge state is managed by monitor media presence detection
+    updateMonitorPresenceUI();
 
     if (!state.alertsEnabled) {
         document.getElementById('alertToast')?.classList.remove('is-visible');
@@ -2329,4 +2323,112 @@ function setupEventListeners() {
             }
         });
     });
+}
+
+// Determine whether a container has a visible media source (img or video)
+function mediaPresentInContainer(container) {
+    if (!container) return false;
+    const video = container.querySelector('video');
+    const img = container.querySelector('img');
+    if (video) {
+        // Consider video present if it has a srcObject, a currentSrc, or has loaded metadata
+        if (video.srcObject) return true;
+        if (video.currentSrc && video.currentSrc.trim() !== '') return true;
+        if (video.readyState && video.readyState > 0) return true;
+    }
+    if (img) {
+        // Consider image present if it has a non-empty src attribute
+        if (img.src && img.src.trim() !== '') return true;
+    }
+    return false;
+}
+
+function getMonitorsHaveMedia() {
+    const normalContainer = document.getElementById('normalCameraContainer');
+    const thermalContainer = document.getElementById('thermalCameraContainer');
+    const normalHas = mediaPresentInContainer(normalContainer);
+    const thermalHas = mediaPresentInContainer(thermalContainer);
+    return { normalHas, thermalHas, any: normalHas || thermalHas };
+}
+
+function updateMonitorPresenceUI() {
+    const normalContainer = document.getElementById('normalCameraContainer');
+    const thermalContainer = document.getElementById('thermalCameraContainer');
+    const { normalHas, thermalHas, any } = getMonitorsHaveMedia();
+    // Respect the user Camera Streams toggle — if streams are turned off, do not
+    // show the "No Camera Connected" message. Instead show "Camera Streams Disabled".
+    const cameraToggle = document.getElementById('cameraToggle');
+    const streamsEnabled = cameraToggle ? cameraToggle.checked : true;
+
+    [[normalContainer, normalHas], [thermalContainer, thermalHas]].forEach(([container, has]) => {
+        if (!container) return;
+        const notice = container.querySelector('.ht-camera__no-camera');
+        if (notice) notice.remove();
+        container.classList.remove('ht-camera--no-input');
+
+        const hardwareAbsent = cameraToggle ? cameraToggle.disabled && !cameraToggle.checked : false;
+        const shouldShowOffline = !streamsEnabled || !has;
+        const offlineText = !streamsEnabled
+            ? (hardwareAbsent ? 'No camera connected' : 'Camera streams disabled')
+            : 'No camera connected';
+
+        container.classList.toggle('camera-feed--offline', shouldShowOffline);
+        if (shouldShowOffline) {
+            container.dataset.offlineText = offlineText;
+            stopMediaInContainer(container);
+        } else {
+            container.removeAttribute('data-offline-text');
+        }
+    });
+
+    document.querySelectorAll('.ht-live-badge').forEach((badge, index) => {
+        const monitorHasMedia = index === 0 ? normalHas : thermalHas;
+        badge.classList.toggle('ht-live-badge--disabled', !(monitorHasMedia && streamsEnabled));
+    });
+}
+
+function stopMediaInContainer(container) {
+    if (!container) return;
+    // Stop video elements
+    const videos = container.querySelectorAll('video');
+    videos.forEach((v) => {
+        try {
+            v.pause();
+            if (v.srcObject && v.srcObject.getTracks) {
+                v.srcObject.getTracks().forEach(t => t.stop());
+            }
+            v.srcObject = null;
+            v.removeAttribute('src');
+            v.load?.();
+        } catch (e) {
+            // ignore
+        }
+    });
+    // Clear images
+    const imgs = container.querySelectorAll('img');
+    imgs.forEach((img) => {
+        try {
+            img.removeAttribute('src');
+        } catch (e) {}
+    });
+}
+
+function observeMonitorMediaChanges() {
+    const normalContainer = document.getElementById('normalCameraContainer');
+    const thermalContainer = document.getElementById('thermalCameraContainer');
+    const obsConfig = { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'srcObject'] };
+    const debounced = (() => {
+        let t = null;
+        return () => {
+            clearTimeout(t);
+            t = setTimeout(() => updateMonitorPresenceUI(), 150);
+        };
+    })();
+
+    const observer = new MutationObserver(() => debounced());
+    if (normalContainer) observer.observe(normalContainer, obsConfig);
+    if (thermalContainer) observer.observe(thermalContainer, obsConfig);
+
+    // Also run once to initialize
+    updateMonitorPresenceUI();
 }
