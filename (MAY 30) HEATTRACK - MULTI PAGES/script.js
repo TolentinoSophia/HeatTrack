@@ -1394,9 +1394,13 @@ function openRecommendationModal(rec, currentTemp) {
         }
     };
 
-    resetScrollPosition();
+    // Open modal first so layout/overflow values are stable, then reset scroll on mobile.
     modal.classList.add('is-open');
-    requestAnimationFrame(resetScrollPosition);
+    if (window.innerWidth <= 767) {
+        // Ensure modal body resets to top on mobile to avoid preserving previous scroll
+        resetScrollPosition();
+        requestAnimationFrame(resetScrollPosition);
+    }
     lucide.createIcons();
 }
 
