@@ -162,6 +162,7 @@ function getRecTip(rec) {
 function initSystem() {
     updateTime();
     intervals.clock = setInterval(updateTime, 1000);
+    setCustomRangeMaxDate();
 
     // Initialize sensor history with some data
     for (let i = 0; i < 20; i++) {
@@ -530,12 +531,32 @@ function parseDateInput(value, endOfDay = false) {
     if (!value) return null;
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsed > today) return null;
+
     if (endOfDay) {
         parsed.setHours(23, 59, 59, 999);
     } else {
         parsed.setHours(0, 0, 0, 0);
     }
     return parsed;
+}
+
+function getTodayInputValue() {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${today.getFullYear()}-${month}-${day}`;
+}
+
+function setCustomRangeMaxDate() {
+    const maxValue = getTodayInputValue();
+    const startInput = document.getElementById('logCustomStart');
+    const endInput = document.getElementById('logCustomEnd');
+    if (startInput) startInput.max = maxValue;
+    if (endInput) endInput.max = maxValue;
 }
 
 function getLogDateBounds() {
@@ -1950,12 +1971,16 @@ function setupEventListeners() {
         renderDetectionLogs();
     });
 
-    document.getElementById('logCustomStart').addEventListener('change', () => {
+    document.getElementById('logCustomStart').addEventListener('change', (e) => {
+        const el = document.getElementById('logCustomStart');
+        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
         state.currentPage = 1;
         renderDetectionLogs();
     });
 
-    document.getElementById('logCustomEnd').addEventListener('change', () => {
+    document.getElementById('logCustomEnd').addEventListener('change', (e) => {
+        const el = document.getElementById('logCustomEnd');
+        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
         state.currentPage = 1;
         renderDetectionLogs();
     });
