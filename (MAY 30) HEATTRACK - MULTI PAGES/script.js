@@ -187,6 +187,12 @@ function initSystem() {
 
     // Event listeners
     setupEventListeners();
+    // Detect camera hardware and update the live view UI
+    try {
+        checkCameraDevices();
+    } catch (e) {
+        // Non-blocking
+    }
 }
 
 // ============================================
@@ -949,6 +955,54 @@ function updateStats() {
 // ============================================
 function drawAnnotations() {
     updateAnnotations();
+}
+
+// Check for connected video input devices and update UI accordingly.
+async function checkCameraDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        updateCameraUI(false);
+        return;
+    }
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasVideo = devices.some(d => d.kind === 'videoinput');
+        updateCameraUI(hasVideo);
+    } catch (err) {
+        console.warn('Camera device enumeration failed', err);
+        updateCameraUI(false);
+    }
+}
+
+function updateCameraUI(hasCamera) {
+    state.cameraActive = !!hasCamera;
+    const cameraToggle = document.getElementById('cameraToggle');
+    if (cameraToggle) {
+        cameraToggle.checked = !!hasCamera;
+        cameraToggle.disabled = !hasCamera;
+    }
+
+    const containers = [
+        document.getElementById('normalCameraContainer'),
+        document.getElementById('thermalCameraContainer')
+    ];
+
+    containers.forEach(container => {
+        if (!container) return;
+        let notice = container.querySelector('.ht-camera__no-camera');
+        if (!hasCamera) {
+            if (!notice) {
+                notice = document.createElement('div');
+                notice.className = 'ht-camera__no-camera';
+                notice.setAttribute('role', 'status');
+                notice.textContent = 'No camera connected';
+                container.appendChild(notice);
+            }
+            container.classList.add('ht-camera--no-input');
+        } else {
+            if (notice) notice.remove();
+            container.classList.remove('ht-camera--no-input');
+        }
+    });
 }
 
 function updateAnnotations() {
