@@ -1051,7 +1051,7 @@ function renderDetectionLogs() {
     if (!pageData.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="ht-footnote" style="text-align:center; padding:1.5rem 0;">No detections found. Live event data will populate here once available.</td>
+                <td colspan="5" class="ht-footnote" style="text-align:center; padding:1.5rem 0; font-size:15px; line-height:1.6;">No detections found. Live event data will populate here once available.</td>
             </tr>
         `;
     } else {
