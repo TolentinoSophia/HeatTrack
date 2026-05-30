@@ -817,8 +817,14 @@
                                 <option value="custom">Custom range</option>
                             </select>
                             <div id="logCustomRange" class="u-hidden ht-custom-range">
-                                <input type="date" id="logCustomStart" class="ht-select" aria-label="Custom start date">
-                                <input type="date" id="logCustomEnd" class="ht-select" aria-label="Custom end date">
+                                <div class="ht-custom-range__item">
+                                    <span class="ht-select-label">To</span>
+                                    <input type="date" id="logCustomStart" class="ht-select" aria-label="Custom start date" data-has-value="false">
+                                </div>
+                                <div class="ht-custom-range__item">
+                                    <span class="ht-select-label">From</span>
+                                    <input type="date" id="logCustomEnd" class="ht-select" aria-label="Custom end date" data-has-value="false">
+                                </div>
                             </div>
                             <button type="button" id="exportLogs" class="ht-btn ht-btn--small ht-btn--ghost">
                                 <i data-lucide="download"></i> Generate Report
