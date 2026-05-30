@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeatTrack - Thermal AI System</title>
+    <link rel="icon" href="HEATTRACK_ORANGE.ico" type="image/x-icon">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="ui.css">
+    <script>
+        (function () {
+            var map = { '#live': 'live', '#dashboard': 'live', '#analytics': 'analytics', '#insights': 'insights', '#about': 'about', '#home-guide': 'home' };
+            var h = (location.hash || '').toLowerCase();
+            var route = map[h];
+            if (!route && h.indexOf('#about-') === 0) route = 'about';
+            if (route) document.documentElement.setAttribute('data-boot-route', route);
+        })();
+    </script>
+</head>
+<body class="ht-body">
+
+    <nav class="ht-topnav" aria-label="Site">
+        <div class="ht-wrap ht-topnav__inner">
+            <div class="ht-topnav__row">
+                <button type="button" id="navMenuToggle" class="ht-nav-menu-btn" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobileNav">
+                    <i data-lucide="menu"></i>
+                </button>
+
+                <div class="ht-brand">
+                    <div class="ht-brand__mark">
+                        <div class="ht-brand__logo">
+                            <img src="HEATTRACK_WHITE.ico" alt="" class="ht-brand__logo-img">
+                        </div>
+                    </div>
+                    <div class="ht-brand__titles">
+                        <h1 class="ht-brand__name">HEATTRACK</h1>
+                        <p class="ht-brand__tag">Thermal AI System</p>
+                    </div>
+                </div>
+
+                <nav class="ht-nav" aria-label="Primary" id="mobileNav">
+                    <a href="#home" data-nav="home" class="ht-nav__link">Home</a>
+                    <a href="#live" data-nav="live" class="ht-nav__link">Live</a>
+                    <a href="#analytics" data-nav="analytics" class="ht-nav__link">Analytics</a>
+                    <a href="#insights" data-nav="insights" class="ht-nav__link">Insights</a>
+                    <a href="#about" data-nav="about" class="ht-nav__link">About</a>
+                </nav>
+
+                <div class="ht-topnav__tools">
+                    <button type="button" id="settingsBtn" class="ht-iconbtn" aria-label="Settings">
+                        <i data-lucide="settings"></i>
+                    </button>
+                    <button type="button" id="alertBtn" class="ht-iconbtn" aria-label="Alerts">
+                        <i data-lucide="bell"></i>
+                        <span id="alertBadge" class="ht-alert-badge u-hidden">0</span>
+                    </button>
+                    <div class="ht-clock">
+                        <i data-lucide="clock"></i>
+                        <span id="liveTime"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div id="alertPanel" class="ht-alert-panel u-hidden" role="dialog" aria-label="Alerts">
+        <div class="ht-alert-panel__head">
+            <h3 class="ht-alert-panel__title">Alerts &amp; Notifications</h3>
+            <button type="button" id="clearAlerts" class="ht-linkbtn">Clear All</button>
+        </div>
+        <div id="alertList" class="ht-alert-panel__list">
+            <p class="ht-alert-panel__empty">No alerts yet</p>
+        </div>
+    </div>
+
+    <div id="settingsPanel" class="ht-settings-panel u-hidden" role="dialog" aria-label="Settings">
+        <div class="ht-settings-panel__head">
+            <h3 class="ht-settings-panel__title">System Controls</h3>
+        </div>
+        <div class="ht-settings-panel__body ht-switch-list">
+            <div class="ht-switch-row">
+                <div class="ht-switch-row__text">
+                    <div class="ht-switch-row__icon ht-switch-row__icon--green"><i data-lucide="video"></i></div>
+                    <div>
+                        <div class="ht-switch-row__title">Camera Streams</div>
+                        <div class="ht-switch-row__sub">Both cameras active</div>
+                    </div>
+                </div>
+                <label class="ht-switch ht-switch--green">
+                    <input type="checkbox" id="cameraToggle" checked>
+                    <span class="ht-switch__track" aria-hidden="true"></span>
+                </label>
+            </div>
+            <div class="ht-switch-row">
+                <div class="ht-switch-row__text">
+                    <div class="ht-switch-row__icon ht-switch-row__icon--thermal"><i data-lucide="brain"></i></div>
+                    <div>
+                        <div class="ht-switch-row__title">AI Detection Model</div>
+                        <div class="ht-switch-row__sub">MLX90 + Thermal Analysis</div>
+                    </div>
+                </div>
+                <label class="ht-switch ht-switch--thermal">
+                    <input type="checkbox" id="aiToggle" checked>
+                    <span class="ht-switch__track" aria-hidden="true"></span>
+                </label>
+            </div>
+            <div class="ht-switch-row">
+                <div class="ht-switch-row__text">
+                    <div class="ht-switch-row__icon ht-switch-row__icon--blue"><i data-lucide="bell-ring"></i></div>
+                    <div>
+                        <div class="ht-switch-row__title">Alert Notifications</div>
+                        <div class="ht-switch-row__sub">Push &amp; Sound alerts</div>
+                    </div>
+                </div>
+                <label class="ht-switch ht-switch--blue">
+                    <input type="checkbox" id="alertToggle" checked>
+                    <span class="ht-switch__track" aria-hidden="true"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <main class="ht-main">
+        <!-- HOME VIEW -->
+        <section id="view-home" class="ht-view" aria-label="Home">
+
+            <!-- HERO SECTION -->
+            <div class="ht-hero">
+                <div class="ht-hero__glow ht-hero__glow--a" aria-hidden="true"></div>
+                <div class="ht-hero__glow ht-hero__glow--b" aria-hidden="true"></div>
+                <div class="ht-hero__glow ht-hero__glow--c" aria-hidden="true"></div>
+                <div class="ht-wrap ht-hero__inner">
+                    <div class="ht-hero__grid">
+                        <p class="ht-kicker ht-hero__kicker">
+                            <span class="ht-kicker__dot"></span>
+                            Pateros Duckery · Assistive Monitoring
+                        </p>
+                        <div class="ht-hero__copy">
+                            <h2 class="ht-hero__title">
+                                AI-Powered Heat Stress Monitoring<br>
+                                <span class="ht-hero__title-accent">for Healthier Duck Flocks</span>
+                            </h2>
+                            <p class="ht-lead">Real-time thermal monitoring to detect heat stress early and protect flock welfare.</p>
+                            <div class="ht-hero__actions">
+                                <a href="#live" class="ht-btn ht-btn--primary">
+                                    <i data-lucide="video"></i>
+                                    <span>Open Live Monitoring</span>
+                                    <i data-lucide="arrow-right" class="ht-btn__chev"></i>
+                                </a>
+                                <a href="#about" class="ht-btn ht-btn--secondary">
+                                    <i data-lucide="book-open"></i>
+                                    <span>About</span>
+                                </a>
+                            </div>
+                        </div>
+                        <aside class="ht-hero__aside" aria-label="System highlights">
+                            <div class="ht-about-highlight">
+                                <ul class="ht-about-highlight__list">
+                                    <li>
+                                        <span class="ht-about-highlight__icon ht-about-highlight__icon--thermal"><i data-lucide="scan-eye"></i></span>
+                                        <div>
+                                            <strong>Thermal imaging</strong>
+                                            <p>Detect surface temperature changes before visible distress.</p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <span class="ht-about-highlight__icon ht-about-highlight__icon--sensor"><i data-lucide="gauge"></i></span>
+                                        <div>
+                                            <strong>Environmental sensing</strong>
+                                            <p>Track temperature, humidity, and heat index in the barn.</p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <span class="ht-about-highlight__icon ht-about-highlight__icon--ai"><i data-lucide="lightbulb"></i></span>
+                                        <div>
+                                            <strong>AI-guided actions</strong>
+                                            <p>Severity-ranked alerts and recommended actions.</p>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD NAVIGATION BAND -->
+            <div class="ht-band">
+                <div class="ht-wrap ht-band__inner">
+                    <header class="ht-section-head">
+                        <p class="ht-section-eyebrow">Quick Navigation</p>
+                        <h2 class="ht-section-title">Explore the Dashboard</h2>
+                        <p class="ht-section-sub">Jump to Live, Analytics, Insights, or About — each area covers a different part of monitoring and learning how HeatTrack works.</p>
+                    </header>
+                    <div class="ht-jump-grid">
+                        <a href="#live" class="ht-jump-card">
+                            <div class="ht-jump-card__icon ht-jump-card__icon--live">
+                                <i data-lucide="video"></i>
+                            </div>
+                            <h3 class="ht-jump-card__title">Live Monitoring</h3>
+                            <p class="ht-jump-card__text">Real-time RGB and thermal streams with live detection and sensor readings.</p>
+                            <span class="ht-jump-card__cta">Open Live <i data-lucide="chevron-right"></i></span>
+                        </a>
+                        <a href="#analytics" class="ht-jump-card">
+                            <div class="ht-jump-card__icon ht-jump-card__icon--analytics">
+                                <i data-lucide="line-chart"></i>
+                            </div>
+                            <h3 class="ht-jump-card__title">Analytics</h3>
+                            <p class="ht-jump-card__text">Review detection history, trends, and severity distributions with CSV export.</p>
+                            <span class="ht-jump-card__cta">Open Analytics <i data-lucide="chevron-right"></i></span>
+                        </a>
+                        <a href="#insights" class="ht-jump-card">
+                            <div class="ht-jump-card__icon ht-jump-card__icon--insights">
+                                <i data-lucide="layout-dashboard"></i>
+                            </div>
+                            <h3 class="ht-jump-card__title">Insights</h3>
+                            <p class="ht-jump-card__text">Summary KPIs, AI recommendations, live events, and system controls.</p>
+                            <span class="ht-jump-card__cta">Open Insights <i data-lucide="chevron-right"></i></span>
+                        </a>
+                        <a href="#about" class="ht-jump-card">
+                            <div class="ht-jump-card__icon ht-jump-card__icon--about">
+                                <i data-lucide="info"></i>
+                            </div>
+                            <h3 class="ht-jump-card__title">About HeatTrack</h3>
+                            <p class="ht-jump-card__text">System overview, heat stress guide, capabilities, and operation benefits.</p>
+                            <span class="ht-jump-card__cta">Learn More <i data-lucide="chevron-right"></i></span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THERMAL COLOR SPECTRUM -->
+            <section class="ht-home-section ht-spectrum-section-simple">
+                <div class="ht-wrap">
+                    <header class="ht-section-head ht-section-head--center">
+                        <p class="ht-section-eyebrow">Quick Reference</p>
+                        <h2 class="ht-section-title">Thermal Color Spectrum Guide</h2>
+                    </header>
+                    <article class="ht-article-card ht-article-card--wide">
+                        <div class="ht-article-card__row">
+                            <div class="ht-article-card__icon ht-article-card__icon--thermal"><i data-lucide="eye"></i></div>
+                            <div>
+                                <p class="ht-prose">HeatTrack's thermal imaging uses a precisely calibrated color spectrum to identify heat stress levels in real time. Each color represents a risk tier: green for normal conditions, yellow for early warning, orange for active intervention, and red for critical emergencies.</p>
+                            </div>
+                        </div>
+                        <div class="ht-spectrum" role="region" aria-label="Thermal Color Spectrum">
+                            <div class="ht-spectrum__bar" aria-hidden="true" role="presentation"></div>
+                            <div class="ht-spectrum__labels" aria-label="Risk levels from left to right">
+                                <span class="ht-spectrum__label ht-spectrum__label--low">Low</span>
+                                <span class="ht-spectrum__label ht-spectrum__label--moderate">Moderate</span>
+                                <span class="ht-spectrum__label ht-spectrum__label--high">High</span>
+                                <span class="ht-spectrum__label ht-spectrum__label--critical">Critical</span>
+                            </div>
+                            <div class="ht-spectrum__keys">
+                                <div class="ht-spectrum__item" role="definition">
+                                    <span class="ht-spectrum__dot ht-spectrum__dot--mid" aria-label="Green color indicator"></span>
+                                    <div>
+                                        <strong>Green — Low Risk</strong>
+                                        <p>Thermal readings are within a safe, normal range. No intervention needed. Continue routine monitoring and maintain current operating conditions.</p>
+                                    </div>
+                                </div>
+                                <div class="ht-spectrum__item" role="definition">
+                                    <span class="ht-spectrum__dot ht-spectrum__dot--warm" aria-label="Yellow color indicator"></span>
+                                    <div>
+                                        <strong>Yellow — Moderate Risk</strong>
+                                        <p>Heat levels are rising and approaching concern thresholds. Monitor closely and consider activating preventive cooling measures if conditions continue to climb.</p>
+                                    </div>
+                                </div>
+                                <div class="ht-spectrum__item" role="definition">
+                                    <span class="ht-spectrum__dot ht-spectrum__dot--hot" aria-label="Orange color indicator"></span>
+                                    <div>
+                                        <strong>Orange — High Risk</strong>
+                                        <p>Significant heat stress is present and animals may show behavioral signs. Activate cooling systems immediately and observe animals closely for distress indicators.</p>
+                                    </div>
+                                </div>
+                                <div class="ht-spectrum__item" role="definition">
+                                    <span class="ht-spectrum__dot ht-spectrum__dot--critical" aria-label="Red color indicator"></span>
+                                    <div>
+                                        <strong>Red — Critical Risk</strong>
+                                        <p>Critical heat stress has been detected and animals are at immediate risk. Emergency intervention is required now. Deploy all available cooling resources and seek veterinary guidance.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <div class="ht-disclaimer-band">
+                <div class="ht-wrap">
+                    <div class="ht-disclaimer">
+                        <i data-lucide="info"></i>
+                        <div>
+                            <p class="ht-disclaimer__label">Important Disclaimer</p>
+                            <p class="ht-prose">This page is for orientation only. AI detections, charts, and recommendations in the app are assistive tools and may contain errors. Always confirm findings with on-site observation and follow your farm or veterinarian protocols before taking critical action.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABOUT VIEW -->
+        <section id="view-about" class="ht-view ht-about-page u-hidden" aria-label="About HeatTrack">
+
+            <!-- FIELD GUIDE -->
+            <section id="about-guide" class="ht-about-section ht-about-section--guide" aria-labelledby="guide-heading">
+                <div class="ht-wrap">
+                    <header class="ht-section-head ht-section-head--center">
+                        <p class="ht-section-eyebrow">Field Guide</p>
+                        <h2 id="guide-heading" class="ht-section-title">Understanding Heat Stress</h2>
+                        <p class="ht-section-sub">Learn what heat stress is, what causes it, why early detection matters, and how HeatTrack supports your response.</p>
+                    </header>
+                    <div class="ht-about-panel">
+                        <div class="ht-guide__grid">
+                        <article class="ht-article-card ht-about-topic-card">
+                            <span class="ht-about-topic-card__num" aria-hidden="true">01</span>
+                            <div class="ht-article-card__row">
+                                <div class="ht-article-card__icon ht-article-card__icon--thermal"><i data-lucide="thermometer-sun"></i></div>
+                                <div>
+                                    <h3 class="ht-article-card__h">What is heat stress?</h3>
+                                    <p class="ht-prose">Heat stress occurs when a duck's body cannot dissipate heat fast enough and internal temperature rises above safe limits. Early signs are subtle behavioral changes — not just hot air temperatures — which is why thermal imaging is critical for early detection.</p>
+                                </div>
+                            </div>
+                            <ul class="ht-bullets">
+                                <li><span class="ht-bullets__dot ht-bullets__dot--thermal"></span><div><strong>Open-mouth breathing:</strong> a visible sign that cooling is no longer sufficient through normal respiratory mechanisms.</div></li>
+                                <li><span class="ht-bullets__dot ht-bullets__dot--thermal"></span><div><strong>Reduced activity:</strong> ducks rest more, eat less, and crowd towards the coolest available space.</div></li>
+                            </ul>
+                        </article>
+
+                        <article class="ht-article-card ht-about-topic-card">
+                            <span class="ht-about-topic-card__num" aria-hidden="true">02</span>
+                            <div class="ht-article-card__row">
+                                <div class="ht-article-card__icon ht-article-card__icon--emerald"><i data-lucide="droplets"></i></div>
+                                <div>
+                                    <h3 class="ht-article-card__h">Causes of Heat Stress</h3>
+                                    <p class="ht-prose">Heat stress is driven by more than temperature alone. Humidity, poor airflow, stocking density, and limited water access all interact to determine whether birds can effectively cool themselves down.</p>
+                                </div>
+                            </div>
+                            <ul class="ht-bullets">
+                                <li><span class="ht-bullets__dot ht-bullets__dot--emerald"></span><div><strong>High humidity:</strong> traps heat and significantly reduces the effectiveness of evaporative cooling pathways.</div></li>
+                                <li><span class="ht-bullets__dot ht-bullets__dot--emerald"></span><div><strong>Poor ventilation:</strong> creates hot pockets and stale air zones where birds struggle most to regulate temperature.</div></li>
+                                <li><span class="ht-bullets__dot ht-bullets__dot--emerald"></span><div><strong>Overcrowding:</strong> increases collective body heat and reduces the number of cool resting positions available.</div></li>
+                            </ul>
+                        </article>
+
+                        <article class="ht-article-card ht-about-topic-card">
+                            <span class="ht-about-topic-card__num" aria-hidden="true">03</span>
+                            <div class="ht-article-card__row">
+                                <div class="ht-article-card__icon ht-article-card__icon--sky"><i data-lucide="alert-triangle"></i></div>
+                                <div>
+                                    <h3 class="ht-article-card__h">Why Early Detection Matters</h3>
+                                    <p class="ht-prose">Catching heat stress early gives farm operators a window to act before performance drops, welfare is compromised, or mortality risk increases. Use Live behavior cues, Analytics trends, and Insights alerts together for the fastest and most informed response.</p>
+                                </div>
+                            </div>
+                            <ul class="ht-bullets">
+                                <li><span class="ht-bullets__dot ht-bullets__dot--sky"></span><div><strong>Early warning:</strong> act before feed intake and growth rates begin to decline — often invisible until it's too late.</div></li>
+                                <li><span class="ht-bullets__dot ht-bullets__dot--sky"></span><div><strong>Data-driven decisions:</strong> match thermal readings with barn conditions and behavior to prioritize your response correctly.</div></li>
+                            </ul>
+                        </article>
+
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- KEY FEATURES -->
+            <section id="about-features" class="ht-about-section ht-about-section--features" aria-labelledby="features-heading">
+                <div class="ht-wrap">
+                    <header class="ht-section-head ht-section-head--center">
+                        <p class="ht-section-eyebrow">Core Capabilities</p>
+                        <h2 id="features-heading" class="ht-section-title">What HeatTrack Delivers</h2>
+                        <p class="ht-section-sub">Purpose-built tools that combine visual, thermal, and environmental data into one clear monitoring workflow.</p>
+                    </header>
+                    <div class="ht-feature-grid">
+                        <article class="ht-feature-card">
+                            <div class="ht-feature-card__icon ht-feature-card__icon--thermal"><i data-lucide="scan-eye"></i></div>
+                            <h3 class="ht-feature-card__title">Dual-Camera Detection</h3>
+                            <p class="ht-feature-card__text">Synchronized RGB and thermal streams with AI overlays highlight at-risk ducks before visible distress spreads across the flock.</p>
+                        </article>
+                        <article class="ht-feature-card">
+                            <div class="ht-feature-card__icon ht-feature-card__icon--sensor"><i data-lucide="gauge"></i></div>
+                            <h3 class="ht-feature-card__title">Environmental Sensing</h3>
+                            <p class="ht-feature-card__text">DHT22 readings for temperature, humidity, and heat index are logged continuously and charted for trend-based decisions.</p>
+                        </article>
+                        <article class="ht-feature-card">
+                            <div class="ht-feature-card__icon ht-feature-card__icon--alert"><i data-lucide="bell-ring"></i></div>
+                            <h3 class="ht-feature-card__title">Severity-Based Alerts</h3>
+                            <p class="ht-feature-card__text">Graded notifications from Low to Critical help you prioritize response time and match interventions to actual risk level.</p>
+                        </article>
+                        <article class="ht-feature-card">
+                            <div class="ht-feature-card__icon ht-feature-card__icon--insight"><i data-lucide="lightbulb"></i></div>
+                            <h3 class="ht-feature-card__title">Actionable Insights</h3>
+                            <p class="ht-feature-card__text">Context-aware recommendations suggest cooling steps, hydration checks, and monitoring intervals tailored to current barn conditions.</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RECOMMENDATIONS PREVIEW -->
+            <section id="about-rec" class="ht-about-section ht-about-section--rec" aria-labelledby="rec-preview-heading">
+                <div class="ht-wrap">
+                    <div class="ht-about-panel ht-about-panel--rec">
+                    <header class="ht-section-head ht-section-head--center">
+                        <p class="ht-section-eyebrow">Smart Guidance</p>
+                        <h2 id="rec-preview-heading" class="ht-section-title">AI Recommendations at a Glance</h2>
+                        <p class="ht-section-sub">The Insights view organizes guidance into clear categories so every alert comes with practical next steps.</p>
+                    </header>
+                    <div class="ht-rec-preview-grid">
+                        <article class="ht-rec-preview-card ht-rec-preview-card--urgent">
+                            <div class="ht-rec-preview-card__icon"><i data-lucide="zap"></i></div>
+                            <h3 class="ht-rec-preview-card__title">Suggested Actions</h3>
+                            <p class="ht-rec-preview-card__text">Immediate cooling, relocation, and hydration steps ranked by severity and intervention window.</p>
+                        </article>
+                        <article class="ht-rec-preview-card ht-rec-preview-card--caution">
+                            <div class="ht-rec-preview-card__icon"><i data-lucide="shield"></i></div>
+                            <h3 class="ht-rec-preview-card__title">Prevention Tips</h3>
+                            <p class="ht-rec-preview-card__text">Ventilation checks, shade deployment, and feeding schedule adjustments to reduce heat load proactively.</p>
+                        </article>
+                        <article class="ht-rec-preview-card ht-rec-preview-card--info">
+                            <div class="ht-rec-preview-card__icon"><i data-lucide="cloud-sun"></i></div>
+                            <h3 class="ht-rec-preview-card__title">Environmental Insights</h3>
+                            <p class="ht-rec-preview-card__text">Humidity-aware guidance that explains how ambient conditions amplify or reduce heat stress risk.</p>
+                        </article>
+                        <article class="ht-rec-preview-card ht-rec-preview-card--thermal">
+                            <div class="ht-rec-preview-card__icon"><i data-lucide="thermometer"></i></div>
+                            <h3 class="ht-rec-preview-card__title">Temperature Guidance</h3>
+                            <p class="ht-rec-preview-card__text">Body temperature context, recheck intervals, and thermal image interpretation for each detection.</p>
+                        </article>
+                    </div>
+                    <div class="ht-rec-preview-cta">
+                        <a href="#insights" class="ht-btn ht-btn--primary">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span>View Live Recommendations</span>
+                            <i data-lucide="arrow-right" class="ht-btn__chev"></i>
+                        </a>
+                    </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MONITORING CAPABILITIES -->
+            <section id="about-monitor" class="ht-about-section ht-about-section--monitor" aria-labelledby="monitor-heading">
+                <div class="ht-wrap">
+                    <header class="ht-section-head ht-section-head--center">
+                        <p class="ht-section-eyebrow">Monitoring Capabilities</p>
+                        <h2 id="monitor-heading" class="ht-section-title">Continuous Heat Monitoring</h2>
+                        <p class="ht-section-sub">HeatTrack watches environmental and thermal signals around the clock so operators can intervene while conditions are still manageable.</p>
+                    </header>
+                    <div class="ht-monitor-grid">
+                        <article class="ht-monitor-card">
+                            <div class="ht-monitor-card__head">
+                                <i data-lucide="video"></i>
+                                <h3 class="ht-monitor-card__title">Live Streams</h3>
+                            </div>
+                            <p class="ht-monitor-card__text">Side-by-side RGB and thermal feeds with detection boxes, FPS counters, and per-camera duck statistics updated in real time.</p>
+                            <ul class="ht-monitor-card__list">
+                                <li>Fullscreen zoom on both cameras</li>
+                                <li>Heat stress vs. normal counts</li>
+                                <li>Thermal color scale reference</li>
+                            </ul>
+                        </article>
+                        <article class="ht-monitor-card">
+                            <div class="ht-monitor-card__head">
+                                <i data-lucide="line-chart"></i>
+                                <h3 class="ht-monitor-card__title">Trend Analytics</h3>
+                            </div>
+                            <p class="ht-monitor-card__text">Historical logs, severity charts, and distribution views help you spot patterns across shifts, weather changes, and flock density.</p>
+                            <ul class="ht-monitor-card__list">
+                                <li>Filterable detection history</li>
+                                <li>CSV export for records</li>
+                                <li>Severity-over-time charting</li>
+                            </ul>
+                        </article>
+                        <article class="ht-monitor-card">
+                            <div class="ht-monitor-card__head">
+                                <i data-lucide="activity"></i>
+                                <h3 class="ht-monitor-card__title">Sensor Dashboard</h3>
+                            </div>
+                            <p class="ht-monitor-card__text">Temperature, humidity, heat index, and THI level tiles with trend indicators and a 30-reading environmental chart.</p>
+                            <ul class="ht-monitor-card__list">
+                                <li>DHT22 readings every 3 seconds</li>
+                                <li>Visual progress meters</li>
+                                <li>Multi-metric trend overlay</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SYSTEM BENEFITS -->
+            <section id="about-benefits" class="ht-about-section ht-about-section--benefits" aria-labelledby="benefits-heading">
+                <div class="ht-wrap">
+                    <div class="ht-about-panel ht-about-panel--benefits">
+                    <header class="ht-section-head ht-section-head--center">
+                        <p class="ht-section-eyebrow">Why It Matters</p>
+                        <h2 id="benefits-heading" class="ht-section-title">System Benefits for Your Operation</h2>
+                        <p class="ht-section-sub">HeatTrack supports faster decisions, better welfare outcomes, and more consistent farm management practices.</p>
+                    </header>
+                    <div class="ht-benefits-grid">
+                        <div class="ht-benefit-item">
+                            <span class="ht-benefit-item__num">01</span>
+                            <h3 class="ht-benefit-item__title">Earlier Intervention</h3>
+                            <p class="ht-benefit-item__text">Thermal imaging surfaces temperature anomalies before behavioral signs, giving operators a critical head start.</p>
+                        </div>
+                        <div class="ht-benefit-item">
+                            <span class="ht-benefit-item__num">02</span>
+                            <h3 class="ht-benefit-item__title">Reduced Mortality Risk</h3>
+                            <p class="ht-benefit-item__text">Timely alerts and graded recommendations help teams act within the minutes that matter most during heat events.</p>
+                        </div>
+                        <div class="ht-benefit-item">
+                            <span class="ht-benefit-item__num">03</span>
+                            <h3 class="ht-benefit-item__title">Data-Informed Decisions</h3>
+                            <p class="ht-benefit-item__text">Combine live feeds, sensor trends, and detection logs instead of relying on observation alone during peak heat.</p>
+                        </div>
+                        <div class="ht-benefit-item">
+                            <span class="ht-benefit-item__num">04</span>
+                            <h3 class="ht-benefit-item__title">Operational Confidence</h3>
+                            <p class="ht-benefit-item__text">A single dashboard for monitoring, analytics, and insights keeps your team aligned on what to check and when to escalate.</p>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FAQ (About) -->
+            <section id="about-faq" class="ht-about-section ht-about-section--faq" aria-labelledby="about-faq-heading">
+                <div class="ht-wrap">
+                    <div class="ht-faq-panel">
+                        <header class="ht-section-head ht-section-head--center">
+                            <p class="ht-section-eyebrow">Support</p>
+                            <h2 id="about-faq-heading" class="ht-section-title">Frequently Asked Questions</h2>
+                            <p class="ht-section-sub">Common questions about monitoring, thermal detection, AI guidance, alerts, and flock protection.</p>
+                        </header>
+                        <div class="ht-faq">
+                            <div class="ht-faq__col">
+                                <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--monitor">Monitoring</span>
+                                    <span class="ht-faq__icon ht-faq__icon--monitor" aria-hidden="true"><i data-lucide="activity"></i></span>
+                                    <span class="ht-faq__question">How does HeatTrack monitor heat stress in real time?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>HeatTrack combines live RGB video, infrared thermal imaging, and DHT22 environmental readings. The system tracks temperature, humidity, heat index, and THI level while the AI model flags ducks showing elevated surface temperatures or heat-stress patterns—so you can act before conditions escalate across the flock.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--thermal">Thermal</span>
+                                    <span class="ht-faq__icon ht-faq__icon--thermal" aria-hidden="true"><i data-lucide="scan-eye"></i></span>
+                                    <span class="ht-faq__question">What is thermal detection and how does it work?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>Thermal detection uses an infrared camera to measure surface temperature across each bird. HeatTrack overlays detection boxes on the thermal feed and maps readings to four risk levels—from safe (blue) through high risk (red). Infrared can reveal temperature changes before visible panting or lethargy, giving operators an earlier warning window.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--thermal">Thermal</span>
+                                    <span class="ht-faq__icon ht-faq__icon--thermal" aria-hidden="true"><i data-lucide="palette"></i></span>
+                                    <span class="ht-faq__question">What do the thermal color spectrum levels mean?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>Colors represent relative surface temperature, not exact clinical body temperature. <strong>Blue</strong> indicates normal warmth; <strong>green</strong> is slightly elevated; <strong>yellow</strong> suggests moderate heat stress where cooling is recommended; and <strong>red</strong> signals high heat stress requiring immediate intervention. Use the spectrum together with behavior cues on the RGB feed.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--ai">AI</span>
+                                    <span class="ht-faq__icon ht-faq__icon--ai" aria-hidden="true"><i data-lucide="lightbulb"></i></span>
+                                    <span class="ht-faq__question">How do AI recommendations work?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>When a detection is logged, the Insights view generates context-aware guidance ranked by severity—from Low to Critical. Recommendations cover suggested actions (cooling, relocation, hydration), prevention tips (ventilation, shade, feeding timing), environmental context (humidity and heat index), and temperature follow-up steps. Tap any card in Insights for full detail.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--alerts">Alerts</span>
+                                    <span class="ht-faq__icon ht-faq__icon--alerts" aria-hidden="true"><i data-lucide="bell-ring"></i></span>
+                                    <span class="ht-faq__question">What notifications and alerts does HeatTrack send?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>HeatTrack issues severity-graded alerts (Low, Moderate, High, Critical) when heat stress is detected. Notifications appear in the bell panel, as on-screen toasts, and in the live events stream on Insights. Each alert includes timestamp, severity, and body temperature context so you can prioritize the most urgent cases first.</p>
+                                </div>
+                            </details>
+                        </div>
+                        <div class="ht-faq__col">
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--alerts">Alerts</span>
+                                    <span class="ht-faq__icon ht-faq__icon--alerts" aria-hidden="true"><i data-lucide="settings-2"></i></span>
+                                    <span class="ht-faq__question">Can I control when alerts are delivered?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>Yes. In the Insights panel, use <strong>System Controls</strong> to toggle alert notifications on or off, along with camera streams and the AI detection model. You can also clear the alert history from the bell icon menu. Keep alerts enabled during peak heat hours for the fastest response when conditions change quickly.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--monitor">Monitoring</span>
+                                    <span class="ht-faq__icon ht-faq__icon--monitor" aria-hidden="true"><i data-lucide="refresh-cw"></i></span>
+                                    <span class="ht-faq__question">How often is monitoring data updated?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>Camera feeds and thermal frames refresh continuously during active monitoring. DHT22 sensor readings update every few seconds, feeding the live tiles and the 30-reading environmental trend chart. Detection logs and analytics charts reflect events as they are recorded, keeping recommendations aligned with current barn conditions.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--farmers">Farmers</span>
+                                    <span class="ht-faq__icon ht-faq__icon--farmers" aria-hidden="true"><i data-lucide="bird"></i></span>
+                                    <span class="ht-faq__question">How does HeatTrack help poultry farmers protect their flocks?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>HeatTrack gives poultry and duck farmers earlier visibility into heat risk—combining thermal imaging, environmental sensing, and AI guidance in one dashboard. Teams can intervene sooner, reduce mortality risk during heat spikes, export records for management review, and make data-informed decisions instead of relying on observation alone during the hottest shifts.</p>
+                                </div>
+                            </details>
+                            <details class="ht-faq__item">
+                                <summary class="ht-faq__trigger">
+                                    <span class="ht-faq__tag ht-faq__tag--farmers">Farmers</span>
+                                    <span class="ht-faq__icon ht-faq__icon--farmers" aria-hidden="true"><i data-lucide="shield-check"></i></span>
+                                    <span class="ht-faq__question">Should I still check birds manually if HeatTrack is running?</span>
+                                    <span class="ht-faq__chev" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
+                                </summary>
+                                <div class="ht-faq__panel">
+                                    <p>Absolutely. HeatTrack is an assistive monitoring tool—not a replacement for on-site welfare checks or veterinarian guidance. AI detections and recommendations may contain errors. Always confirm alerts with direct observation and follow your farm protocols before taking critical action, especially for severe or critical severity events.</p>
+                                </div>
+                            </details>
+                            </div>
+                        </div>    
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- LIVE VIEW -->
+        <div id="view-live" class="ht-view u-hidden" aria-label="Live Monitoring">
+            <header class="page-section-header">
+                <div class="ht-wrap ht-page-head">
+                    <div class="ht-page-head__row">
+                        <div>
+                            <h2 class="page-section-title">Live Monitoring</h2>
+                            <p class="page-section-subtitle">Monitor cameras, sensors, and environment in real time.</p>
+                        </div>
+                        <span class="ht-date" data-date-today></span>
+                    </div>
+                </div>
+            </header>
+            <div class="ht-wrap ht-page-body ht-stack-lg">
+                <div class="ht-feed-grid">
+                    <div class="ht-panel">
+                        <div class="ht-panel__head">
+                            <div class="ht-panel__label">
+                                <span>RGB Monitor</span>
+                            </div>
+                            <div class="ht-live-badge ht-live-badge--green">LIVE</div>
+                        </div>
+                        <div class="ht-camera camera-feed" id="normalCameraContainer" title="Click to expand fullscreen">
+                            <div class="camera-zoom-layer ht-camera__layer">
+                                <img id="normalFeed" src="http://static.photos/education/640x360/42" alt="Normal Camera Feed">
+                                <canvas id="normalOverlay"></canvas>
+                                <div id="normalAnnotations" class="ht-camera__annotations"></div>
+                            </div>
+                            <div class="ht-camera__hud ht-camera__hud--tl">
+                                <div class="ht-chip ht-chip--green">CAM-01 | RGB</div>
+                                <div class="ht-chip" id="normalTimestamp">--</div>
+                                <div class="ht-chip ht-chip--stack" id="normalDuckStats">
+                                    <div>Ducks: --</div>
+                                    <div>Normal: --</div>
+                                    <div>Heat Stress: --</div>
+                                </div>
+                            </div>
+                            <div class="ht-camera__hud ht-camera__hud--bl">
+                                <div class="ht-chip" id="normalFps">--</div>
+                            </div>
+                            <div class="ht-camera__hud ht-camera__hud--tr ht-chip">Click to expand</div>
+                            <div class="ht-scanline" aria-hidden="true"></div>
+                        </div>
+                    </div>
+                    <div class="ht-panel">
+                        <div class="ht-panel__head">
+                            <div class="ht-panel__label">
+                                <span>Thermal Monitor</span>
+                            </div>
+                            <div class="ht-live-badge ht-live-badge--thermal">LIVE</div>
+                        </div>
+                        <div class="ht-camera camera-feed" id="thermalCameraContainer" title="Click to expand fullscreen">
+                            <div class="camera-zoom-layer ht-camera__layer">
+                                <img id="thermalFeed" class="thermal-filter" src="http://static.photos/red/640x360/133" alt="Thermal Camera Feed">
+                                <canvas id="thermalOverlay"></canvas>
+                                <div id="thermalAnnotations" class="ht-camera__annotations"></div>
+                            </div>
+                            <div class="ht-camera__hud ht-camera__hud--tl">
+                                <div class="ht-chip ht-chip--thermal">CAM-02 | THERMAL</div>
+                                <div class="ht-chip" id="thermalTimestamp">--</div>
+                                <div class="ht-chip ht-chip--stack" id="thermalDuckStats">
+                                    <div>Ducks: --</div>
+                                    <div>Normal: --</div>
+                                    <div>Heat Stress: --</div>
+                                </div>
+                            </div>
+                            <div class="ht-camera__hud ht-camera__hud--bl">
+                                <div class="ht-chip" id="thermalFps">--</div>
+                            </div>
+                            <div class="ht-camera__hud ht-camera__hud--tr ht-chip">Click to expand</div>
+                            <div class="ht-thermal-scale">
+                                <div class="ht-thermal-scale__bar" aria-hidden="true">
+                                    <span></span><span></span><span></span><span></span>
+                                </div>
+                                <div class="ht-thermal-scale__labels"><span>25°C</span><span>45°C</span></div>
+                            </div>
+                            <div class="ht-scanline" aria-hidden="true"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="ht-panel">
+                    <div class="ht-panel__head">
+                        <div class="ht-panel__label">
+                            <i data-lucide="gauge"></i>
+                            <span>DHT22 Sensor Readings</span>
+                        </div>
+                        <div class="ht-rec-indicator">
+                            <span class="ht-live-dot ht-live-dot--green"></span>
+                            <span class="ht-mono-label ht-mono-label--green">ACTIVE</span>
+                        </div>
+                    </div>
+                    <div class="ht-panel__body">
+                        <div class="ht-sensor-grid">
+                            <div class="ht-sensor-tile ht-sensor-tile--temp">
+                                <div class="ht-sensor-tile__head">
+                                    <i data-lucide="thermometer"></i>
+                                    <span>Temperature</span>
+                                </div>
+                                <div class="ht-sensor-tile__value">
+                                    <span id="tempValue">--</span><span class="ht-unit">°C</span>
+                                </div>
+                                <div id="tempTrend" class="ht-trend ht-trend--up">
+                                    <i data-lucide="trending-up"></i><span>+0.2</span>
+                                </div>
+                                <div class="ht-meter"><div id="tempBar" class="ht-meter__fill ht-meter__fill--temp"></div></div>
+                            </div>
+                            <div class="ht-sensor-tile ht-sensor-tile--humid">
+                                <div class="ht-sensor-tile__head">
+                                    <i data-lucide="droplets"></i>
+                                    <span>Humidity</span>
+                                </div>
+                                <div class="ht-sensor-tile__value">
+                                    <span id="humidValue">--</span><span class="ht-unit">%</span>
+                                </div>
+                                <div id="humidTrend" class="ht-trend ht-trend--down">
+                                    <i data-lucide="trending-down"></i><span>-1.5</span>
+                                </div>
+                                <div class="ht-meter"><div id="humidBar" class="ht-meter__fill ht-meter__fill--humid"></div></div>
+                            </div>
+                            <div class="ht-sensor-tile ht-sensor-tile--hi">
+                                <div class="ht-sensor-tile__head">
+                                    <i data-lucide="flame"></i>
+                                    <span>Heat Index</span>
+                                </div>
+                                <div class="ht-sensor-tile__value">
+                                    <span id="heatIndexValue">--</span><span class="ht-unit">°C</span>
+                                </div>
+                                <div id="heatIndexStatus" class="ht-sensor-pill ht-sensor-pill--caution">MODERATE</div>
+                                <div class="ht-meter"><div id="heatIndexBar" class="ht-meter__fill ht-meter__fill--hi"></div></div>
+                            </div>
+                            <div class="ht-sensor-tile ht-sensor-tile--thi">
+                                <div class="ht-sensor-tile__head">
+                                    <i data-lucide="activity"></i>
+                                    <span>THI Level</span>
+                                </div>
+                                <div class="ht-sensor-tile__value">
+                                    <span id="thiValue">--</span><span class="ht-unit">index</span>
+                                </div>
+                                <div id="thiStatus" class="ht-sensor-pill ht-sensor-pill--normal">NORMAL</div>
+                                <div class="ht-meter"><div id="thiBar" class="ht-meter__fill ht-meter__fill--thi"></div></div>
+                            </div>
+                        </div>
+                        <div class="ht-chart-box">
+                            <div class="ht-chart-box__head">
+                                <span>Environmental Trend (Last 30 Readings)</span>
+                                <div class="ht-legend">
+                                    <span><i class="ht-legend__sw ht-legend__sw--temp"></i> Temperature</span>
+                                    <span><i class="ht-legend__sw ht-legend__sw--humid"></i> Humidity</span>
+                                    <span><i class="ht-legend__sw ht-legend__sw--hi"></i> Heat Index</span>
+                                </div>
+                            </div>
+                            <div class="ht-chart-box__canvas">
+                                <canvas id="envChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- ANALYTICS VIEW -->
+        <div id="view-analytics" class="ht-view u-hidden" aria-label="Analytics">
+            <header class="page-section-header">
+                <div class="ht-wrap ht-page-head">
+                    <div class="ht-page-head__row">
+                        <div>
+                            <h2 class="page-section-title">Analytics</h2>
+                            <p class="page-section-subtitle">Explore history, filter events, export records, and track severity trends.</p>
+                        </div>
+                        <span class="ht-date" data-date-today></span>
+                    </div>
+                </div>
+            </header>
+            <div class="ht-wrap ht-page-body ht-stack-lg">
+                <section class="ht-panel ht-log-panel">
+                    <div class="ht-panel__head">
+                        <div class="ht-panel__label">
+                            <i data-lucide="clipboard-list"></i>
+                            <span>Detection Log History</span>
+                        </div>
+                        <div class="ht-toolbar ht-toolbar--wrap">
+                            <select id="logFilter" class="ht-select">
+                                <option value="all">All Events</option>
+                                <option value="heatstress">Heat Stress Only</option>
+                                <option value="mild">Mild Only</option>
+                                <option value="normal">Normal Only</option>
+                            </select>
+                            <select id="logDateRange" class="ht-select">
+                                <option value="today">Today</option>
+                                <option value="last7">Last 7 days</option>
+                                <option value="last30">Last 30 days</option>
+                                <option value="all">All Times</option>
+                                <option value="custom">Custom range</option>
+                            </select>
+                            <div id="logCustomRange" class="u-hidden ht-custom-range">
+                                <input type="date" id="logCustomStart" class="ht-select" aria-label="Custom start date">
+                                <input type="date" id="logCustomEnd" class="ht-select" aria-label="Custom end date">
+                            </div>
+                            <button type="button" id="exportLogs" class="ht-btn ht-btn--small ht-btn--ghost">
+                                <i data-lucide="download"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ht-table-scroll">
+                        <table class="ht-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Status</th>
+                                    <th>Body Temp</th>
+                                    <th>Duration</th>
+                                    <th>Severity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detectionLogBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="ht-panel__foot">
+                        <span id="logCount" class="ht-footnote">Showing 0 records</span>
+                        <div class="ht-pagination">
+                            <button type="button" id="prevPage">Prev</button>
+                            <span id="pageInfo">1/1</span>
+                            <button type="button" id="nextPage">Next</button>
+                        </div>
+                    </div>
+                </section>
+                <div class="ht-layout-2fr-1fr">
+                    <section class="ht-panel">
+                        <div class="ht-panel__head">
+                            <div class="ht-panel__label">
+                                <i data-lucide="bar-chart-3"></i>
+                                <span>Severity Levels Over Time</span>
+                            </div>
+                        </div>
+                        <div class="ht-panel__pad">
+                            <div class="ht-chart-tall">
+                                <canvas id="severityChart"></canvas>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ht-panel ht-panel--chart">
+                        <div class="ht-panel__head">
+                            <div class="ht-panel__label">
+                                <i data-lucide="pie-chart"></i>
+                                <span>Detection Distribution</span>
+                            </div>
+                        </div>
+                        <div class="ht-panel__pad ht-panel__pad--chart-layout">
+                            <div class="ht-chart-frame">
+                                <canvas id="detectionChart"></canvas>
+                            </div>
+                            <div id="detectionLegend" class="ht-detection-legend"></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- INSIGHTS VIEW -->
+        <div id="view-insights" class="ht-view u-hidden" aria-label="Insights">
+            <header class="page-section-header">
+                <div class="ht-wrap ht-page-head">
+                    <div class="ht-page-head__row">
+                        <div>
+                            <h2 class="page-section-title">Insights &amp; Actions</h2>
+                            <p class="page-section-subtitle">Review KPIs and follow AI-guided recommendations.</p>
+                        </div>
+                        <span class="ht-date" data-date-today></span>
+                    </div>
+                </div>
+            </header>
+            <div class="ht-wrap ht-page-body ht-stack-lg">
+                <div class="ht-kpi-grid" aria-label="Summary KPIs">
+                    <div class="ht-kpi">
+                        <div class="ht-kpi__icon ht-kpi__icon--red"><i data-lucide="alert-triangle"></i></div>
+                        <div id="stressCount" class="ht-kpi__value">0</div>
+                        <div class="ht-kpi__label">Heat Stress Detected</div>
+                    </div>
+                    <div class="ht-kpi">
+                        <div class="ht-kpi__icon ht-kpi__icon--green"><i data-lucide="check-circle"></i></div>
+                        <div id="normalCount" class="ht-kpi__value">0</div>
+                        <div class="ht-kpi__label">Normal Ducks</div>
+                    </div>
+                    <div class="ht-kpi">
+                        <div class="ht-kpi__icon ht-kpi__icon--thermal"><i data-lucide="sun-medium"></i></div>
+                        <div id="mildCount" class="ht-kpi__value">0</div>
+                        <div class="ht-kpi__label">Mild Detections</div>
+                    </div>
+                    <div class="ht-kpi">
+                        <div class="ht-kpi__icon ht-kpi__icon--purple"><i data-lucide="siren"></i></div>
+                        <div id="criticalCount" class="ht-kpi__value">0</div>
+                        <div class="ht-kpi__label">Critical Cases</div>
+                    </div>
+                </div>
+
+                <section class="ht-panel ht-insights-panel-grow ht-panel--stack">
+                    <div class="ht-panel__head">
+                        <div class="ht-panel__label">
+                            <i data-lucide="lightbulb"></i>
+                            <span>Results &amp; Recommendations</span>
+                        </div>
+                        <span id="recBadge" class="ht-badge-tag">0 Active</span>
+                    </div>
+                    <div id="recommendationsList" class="ht-rec-list" role="list"></div>
+                    <div id="recommendationsDisclaimer" class="ht-panel__note">
+                        <div class="ht-panel__note-title">
+                            <i data-lucide="info"></i>
+                            <span>Disclaimer</span>
+                        </div>
+                        <p>AI recommendations are assistive only. Confirm with on-site observation and follow farm protocol before critical actions.</p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <footer class="ht-footer">
+        <div class="ht-wrap ht-footer__inner">
+            <div class="ht-footer__row">
+                <div class="ht-footer__brand">
+                    <img src="HEATTRACK_ORANGE.ico" alt="" class="ht-footer__brand-img">
+                    <span>HeatTrack — Thermal AI System</span>
+                </div>
+                <p class="ht-footer__copy">Pateros Duckery AI-Integrated Assistive Monitoring System for Heat Stress Detection &copy; 2026</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- TOAST -->
+    <div id="alertToast" class="ht-toast" role="status">
+        <div class="ht-toast__card">
+            <div class="ht-toast__icon"><i data-lucide="alert-triangle"></i></div>
+            <div class="ht-toast__body">
+                <div class="ht-toast__title">HEAT STRESS DETECTED</div>
+                <div id="toastMessage" class="ht-toast__msg">Heat stress detected. Body temp: 42.8°C</div>
+                <div id="toastTime" class="ht-toast__time">Just now</div>
+            </div>
+            <button type="button" id="closeToast" class="ht-toast__close" aria-label="Close"><i data-lucide="x"></i></button>
+        </div>
+    </div>
+
+    <!-- RECOMMENDATION MODAL -->
+    <div id="recommendationModal" class="ht-modal" role="dialog" aria-modal="true" aria-labelledby="recommendation-modal-title">
+        <div id="recommendationModalBackdrop" class="ht-modal__backdrop"></div>
+        <div class="ht-modal__dialog">
+            <div class="ht-modal__head">
+                <div class="ht-modal__title-row">
+                    <i data-lucide="clipboard-list"></i>
+                    <span id="recommendation-modal-title">Results &amp; Recommendations</span>
+                </div>
+                <button type="button" id="closeRecommendationModal" class="ht-iconbtn ht-iconbtn--muted" aria-label="Close"><i data-lucide="x"></i></button>
+            </div>
+            <div id="recommendationModalBody" class="ht-modal__body"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

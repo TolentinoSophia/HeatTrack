@@ -1,0 +1,2119 @@
+// Initialize Lucide Icons
+document.addEventListener('DOMContentLoaded', () => {
+    initRouter();
+    initSystem();
+    initFaqAccordion();
+    initMobileNavMenu();
+    lucide.createIcons();
+});
+
+function initFaqAccordion() {
+    document.querySelectorAll('.ht-faq__item').forEach((item) => {
+        item.addEventListener('toggle', () => {
+            if (item.open) lucide.createIcons();
+        });
+    });
+}
+
+// ============================================
+// MOBILE NAVIGATION MENU
+// ============================================
+function initMobileNavMenu() {
+    const menuBtn = document.getElementById('navMenuToggle');
+    const nav = document.getElementById('mobileNav');
+    
+    if (!menuBtn || !nav) return;
+
+    // Toggle menu on button click
+    menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = nav.classList.toggle('is-open');
+        menuBtn.setAttribute('aria-expanded', isOpen);
+    });
+
+    // Close menu when a nav link is clicked
+    nav.querySelectorAll('.ht-nav__link').forEach((link) => {
+        link.addEventListener('click', () => {
+            nav.classList.remove('is-open');
+            menuBtn.setAttribute('aria-expanded', 'false');
+        });
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.ht-topnav')) {
+            nav.classList.remove('is-open');
+            menuBtn.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // Close menu on window resize if screen is large enough
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 768) {
+            nav.classList.remove('is-open');
+            menuBtn.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+
+// ============================================
+// STATE MANAGEMENT
+// ============================================
+let currentView = 'home';
+const intervals = {
+    clock: null,
+    sensor: null,
+    detection: null,
+    annotations: null,
+};
+
+const state = {
+    detections: [],
+    sensorHistory: {
+        temp: [],
+        humidity: [],
+        heatIndex: [],
+        labels: []
+    },
+    currentPage: 1,
+    pageSize: 10,
+    alertCount: 0,
+    alerts: [],
+    cameraActive: true,
+    aiActive: true,
+    alertsEnabled: true,
+    lastToastDetection: null,
+    stats: {
+        stressCount: 0,
+        mildCount: 0,
+        normalCount: 0,
+        totalScans: 0,
+        criticalCount: 0
+    }
+};
+
+// Severity levels
+const severityLevels = ['CRITICAL', 'HIGH', 'MODERATE', 'LOW'];
+
+// Recommendations based on severity
+const recommendations = {
+    CRITICAL: [
+        { action: 'Activate emergency cooling now (sprinklers + fans at 100%)', icon: 'droplets', type: 'urgent', category: 'Suggested Action', tip: 'Start cooling within 1–3 minutes while confirming affected birds on-site.' },
+        { action: 'Move high-temperature ducks to shaded recovery pen within 3 minutes', icon: 'move', type: 'urgent', category: 'Suggested Action', tip: 'Prioritize ducks with the highest thermal readings and visible distress.' },
+        { action: 'Start intensive rehydration: cool clean water at multiple access points', icon: 'glass-water', type: 'urgent', category: 'Prevention', tip: 'Ensure water is cool—not cold enough to shock—and reachable from every zone.' },
+        { action: 'Apply misting cycles every 2-3 minutes until body temperature drops below 41.0°C', icon: 'cloud-rain', type: 'urgent', category: 'Environmental', tip: 'Pair misting with ventilation so humidity does not trap additional heat.' },
+        { action: 'Escalate to veterinarian if severe signs persist for more than 10 minutes', icon: 'phone', type: 'urgent', category: 'Temperature', tip: 'Document body temperatures and intervention times for veterinary review.' },
+    ],
+    HIGH: [
+        { action: 'Run cooling fans at high speed and open all airflow panels', icon: 'fan', type: 'warning', category: 'Environmental', tip: 'Target stagnant zones where humidity and temperature combine to reduce evaporative cooling.' },
+        { action: 'Replace drinking water now and recheck trough temperature every 20 minutes', icon: 'glass-water', type: 'warning', category: 'Prevention', tip: 'Warm water discourages drinking—increasing dehydration risk during heat events.' },
+        { action: 'Separate crowded groups in the hottest zone to reduce heat load', icon: 'minimize-2', type: 'warning', category: 'Suggested Action', tip: 'Reduce collective body heat and improve access to cooler resting areas.' },
+        { action: 'Inspect at-risk ducks every 10 minutes for panting, wing spread, or lethargy', icon: 'eye', type: 'warning', category: 'Temperature', tip: 'Cross-check thermal hotspots with RGB behavior cues before escalating.' },
+        { action: 'Pause stressful handling and feeding activity until ambient temperature improves', icon: 'pause-circle', type: 'warning', category: 'Prevention', tip: 'Minimize additional metabolic heat from movement and digestion.' },
+    ],
+    MODERATE: [
+        { action: 'Shift feeding to early morning or late afternoon to avoid peak heat', icon: 'clock', type: 'caution', category: 'Prevention', tip: 'Digestion raises body temperature—schedule feeds outside the hottest hours.' },
+        { action: 'Confirm all drinkers are clean, flowing, and reachable from every section', icon: 'glass-water', type: 'caution', category: 'Prevention', tip: 'Blocked or distant drinkers are a common hidden cause of heat stress.' },
+        { action: 'Deploy temporary shade and reduce direct sun exposure in open areas', icon: 'tent', type: 'caution', category: 'Environmental', tip: 'Shade can lower effective temperature by several degrees in exposed pens.' },
+        { action: 'Track temperature and humidity trends every 15 minutes for early escalation', icon: 'activity', type: 'caution', category: 'Environmental', tip: 'Rising humidity with stable temperature still increases heat index risk.' },
+        { action: 'Pre-stage cooling equipment so response is immediate if readings rise', icon: 'shield', type: 'caution', category: 'Suggested Action', tip: 'Fans, hoses, and staff assignments should be ready before conditions worsen.' },
+    ],
+    LOW: [
+        { action: 'Continue routine monitoring and keep automated alerts enabled', icon: 'check-circle', type: 'info', category: 'Suggested Action', tip: 'Consistent monitoring catches sudden weather spikes between scheduled checks.' },
+        { action: 'Maintain baseline ventilation and verify fan operation once per shift', icon: 'wind', type: 'info', category: 'Environmental', tip: 'Confirm airflow direction moves hot air out rather than recirculating it.' },
+        { action: 'Log sensor and behavior data for daily heat-risk trend review', icon: 'file-text', type: 'info', category: 'Temperature', tip: 'Compare today\'s readings with the same time yesterday for early pattern detection.' },
+        { action: 'Perform preventive check of water supply and backup cooling systems', icon: 'settings', type: 'info', category: 'Prevention', tip: 'Test backup systems before they are needed during an emergency heat event.' },
+    ]
+};
+
+const REC_TYPE_CLASS = {
+    urgent: 'ht-rec-card ht-rec-card--urgent',
+    warning: 'ht-rec-card ht-rec-card--warning',
+    caution: 'ht-rec-card ht-rec-card--caution',
+    info: 'ht-rec-card ht-rec-card--info',
+};
+
+// Map severity levels to recommendation card CSS classes for consistent UI color uniformity
+const REC_SEVERITY_CLASS = {
+    CRITICAL: 'ht-rec-card ht-rec-card--critical',
+    HIGH: 'ht-rec-card ht-rec-card--high',
+    MODERATE: 'ht-rec-card ht-rec-card--moderate',
+    LOW: 'ht-rec-card ht-rec-card--low',
+};
+
+function getRecCategoryLabel(rec) {
+    return rec.category || 'Suggested Action';
+}
+
+function getRecTip(rec) {
+    if (rec.tip) return rec.tip;
+    const tips = {
+        CRITICAL: 'Treat as highest priority—confirm on-site and recheck within 3 minutes.',
+        HIGH: 'Apply cooling steps now and reassess barn conditions within 10 minutes.',
+        MODERATE: 'Preventive measures recommended—monitor trends every 15 minutes.',
+        LOW: 'Conditions are stable—maintain routine checks and alert readiness.',
+    };
+    return tips[rec.severity] || tips.MODERATE;
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+function initSystem() {
+    updateTime();
+    intervals.clock = setInterval(updateTime, 1000);
+
+    // Initialize sensor history with some data
+    for (let i = 0; i < 20; i++) {
+        state.sensorHistory.temp.push(parseFloat((32 + Math.random() * 8).toFixed(1)));
+        state.sensorHistory.humidity.push(parseFloat((55 + Math.random() * 30).toFixed(1)));
+        state.sensorHistory.heatIndex.push(parseFloat((34 + Math.random() * 10).toFixed(1)));
+        state.sensorHistory.labels.push('');
+    }
+
+    // Generate initial detection data
+    for (let i = 0; i < 15; i++) {
+        const isStress = Math.random() > 0.6;
+        const detection = generateDetection(isStress);
+        detection.timestamp = new Date(Date.now() - Math.random() * 3600000 * 6);
+        state.detections.push(detection);
+    }
+
+    // Sort detections by timestamp (newest first)
+    state.detections.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Seed initial alerts from any heat stress detections so notifications are visible
+    const initialAlerts = state.detections.filter(d => d.isHeatStress).slice(0, 3).reverse();
+    if (initialAlerts.length === 0) {
+        const seeded = generateDetection(true);
+        seeded.timestamp = new Date(Date.now() - 900000);
+        state.detections.unshift(seeded);
+        initialAlerts.push(seeded);
+    }
+    initialAlerts.forEach(showAlert);
+    if (initialAlerts.length > 0) {
+        showToast(initialAlerts[initialAlerts.length - 1]);
+    }
+
+    // Update stats
+    updateStats();
+    updateSensorReadings();
+    initCharts();
+    if (isMonitorRoute()) {
+        requestAnimationFrame(() => {
+            if (typeof envChart !== 'undefined' && envChart) envChart.resize();
+            if (typeof detectionChart !== 'undefined' && detectionChart) detectionChart.resize();
+            if (typeof severityChart !== 'undefined' && severityChart) severityChart.resize();
+        });
+    }
+    renderDetectionLogs();
+    renderLiveDetections();
+    renderRecommendations();
+    drawAnnotations();
+
+    setAppDates();
+
+    // Event listeners
+    setupEventListeners();
+}
+
+// ============================================
+// HASH ROUTER (Home, Live, Analytics, Insights)
+// ============================================
+const MONITOR_ROUTES = ['live', 'analytics', 'insights'];
+
+function isMonitorRoute() {
+    return MONITOR_ROUTES.includes(currentView);
+}
+
+function normalizeRoute(route) {
+    if (route === 'dashboard') return 'live';
+    if (MONITOR_ROUTES.includes(route) || route === 'home' || route === 'about') return route;
+    return 'home';
+}
+
+const ABOUT_SECTION_HASHES = new Set([
+    '#about-guide',
+    '#about-features',
+    '#about-rec',
+    '#about-monitor',
+    '#about-benefits',
+    '#about-faq',
+]);
+
+const ABOUT_NAV_SECTIONS = [
+    { id: 'about-guide', hash: '#about-guide' },
+    { id: 'about-features', hash: '#about-features' },
+    { id: 'about-rec', hash: '#about-rec' },
+    { id: 'about-monitor', hash: '#about-monitor' },
+    { id: 'about-benefits', hash: '#about-benefits' },
+    { id: 'about-faq', hash: '#about-faq' },
+];
+
+let aboutNavScrollPending = false;
+
+function getRouteFromHash() {
+    const h = (location.hash || '').toLowerCase();
+    if (h === '#live' || h === '#dashboard') return 'live';
+    if (h === '#analytics') return 'analytics';
+    if (h === '#insights') return 'insights';
+    if (h === '#about' || ABOUT_SECTION_HASHES.has(h) || h.startsWith('#about-')) return 'about';
+    if (h === '#home-guide') return 'home';
+    if (h === '#home') return 'home';
+    return 'home';
+}
+
+function getAboutAnchorId() {
+    const h = (location.hash || '').toLowerCase();
+    if (ABOUT_SECTION_HASHES.has(h) || (h.startsWith('#about-') && h !== '#about')) {
+        return h.slice(1);
+    }
+    return null;
+}
+
+function getAboutNavOffset() {
+    const topnav = document.querySelector('.ht-topnav');
+    const aboutNav = document.querySelector('.ht-about-nav');
+    return (topnav?.offsetHeight || 64) + (aboutNav?.offsetHeight || 52) + 20;
+}
+
+function setActiveAboutNavLink(hash) {
+    const targetHash = (hash || '').toLowerCase();
+    document.querySelectorAll('.ht-about-nav__link').forEach((link) => {
+        const href = (link.getAttribute('href') || '').toLowerCase();
+        const isActive = href === targetHash;
+        link.classList.toggle('ht-about-nav__link--active', isActive);
+        link.setAttribute('aria-current', isActive ? 'location' : 'false');
+        if (isActive) {
+            link.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        }
+    });
+}
+
+function clearAboutNavActive() {
+    document.querySelectorAll('.ht-about-nav__link').forEach((link) => {
+        link.classList.remove('ht-about-nav__link--active');
+        link.setAttribute('aria-current', 'false');
+    });
+}
+
+function updateAboutNavActive() {
+    if (currentView !== 'about') return;
+
+    const scrollPos = window.scrollY + getAboutNavOffset();
+    let activeHash = ABOUT_NAV_SECTIONS[0].hash;
+
+    for (const section of ABOUT_NAV_SECTIONS) {
+        const el = document.getElementById(section.id);
+        if (!el) continue;
+        const sectionTop = el.getBoundingClientRect().top + window.scrollY;
+        if (sectionTop <= scrollPos) {
+            activeHash = section.hash;
+        }
+    }
+
+    setActiveAboutNavLink(activeHash);
+}
+
+function onAboutPageScroll() {
+    if (currentView !== 'about') return;
+    if (aboutNavScrollPending) return;
+    aboutNavScrollPending = true;
+    requestAnimationFrame(() => {
+        aboutNavScrollPending = false;
+        updateAboutNavActive();
+    });
+}
+
+function syncDashboardIntervals() {
+    const want = isMonitorRoute();
+    if (want) {
+        if (!intervals.sensor) {
+            intervals.sensor = setInterval(simulateSensorUpdate, 3000);
+            intervals.detection = setInterval(simulateDetection, 5000);
+            intervals.annotations = setInterval(updateAnnotations, 3000);
+        }
+    } else {
+        if (intervals.sensor) {
+            clearInterval(intervals.sensor);
+            intervals.sensor = null;
+        }
+        if (intervals.detection) {
+            clearInterval(intervals.detection);
+            intervals.detection = null;
+        }
+        if (intervals.annotations) {
+            clearInterval(intervals.annotations);
+            intervals.annotations = null;
+        }
+    }
+}
+
+function setAppDates() {
+    const s = new Date().toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    document.querySelectorAll('[data-date-today]').forEach((el) => {
+        el.textContent = s;
+    });
+}
+
+function showView(route) {
+    if (window.getSelection) {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) {
+            selection.removeAllRanges();
+        }
+    }
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+    }
+
+    const previousView = currentView;
+    currentView = normalizeRoute(route);
+    if (previousView === 'live' && currentView !== 'live') {
+        const normalCameraContainer = document.getElementById('normalCameraContainer');
+        const thermalCameraContainer = document.getElementById('thermalCameraContainer');
+        if (normalCameraContainer?.resetZoom) normalCameraContainer.resetZoom();
+        if (thermalCameraContainer?.resetZoom) thermalCameraContainer.resetZoom();
+    }
+
+    document.documentElement.classList.remove('initial-dashboard');
+    document.documentElement.removeAttribute('data-boot-route');
+
+    const viewIds = {
+        home: 'view-home',
+        about: 'view-about',
+        live: 'view-live',
+        analytics: 'view-analytics',
+        insights: 'view-insights',
+    };
+    Object.entries(viewIds).forEach(([name, id]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('u-hidden', name !== currentView);
+    });
+
+    document.querySelectorAll('[data-nav]').forEach((el) => {
+        const isActive = el.getAttribute('data-nav') === currentView;
+        el.classList.toggle('ht-nav__link--active', isActive);
+        el.setAttribute('aria-current', isActive ? 'page' : 'false');
+    });
+
+    const titles = {
+        home: 'HeatTrack — Home',
+        about: 'HeatTrack — About',
+        live: 'HeatTrack — Live',
+        analytics: 'HeatTrack — Analytics',
+        insights: 'HeatTrack — Insights',
+    };
+    document.title = titles[currentView] || titles.home;
+
+    syncDashboardIntervals();
+
+    if (currentView === 'live') {
+        drawAnnotations();
+    }
+
+    setAppDates();
+
+    const currentHash = (location.hash || '').toLowerCase();
+    const routeHashes = ['#live', '#dashboard', '#analytics', '#insights', '#home', '#about'];
+    const anchorId =
+        currentView === 'about'
+            ? getAboutAnchorId()
+            : currentHash && !routeHashes.includes(currentHash)
+              ? currentHash.slice(1)
+              : null;
+
+    if (currentView !== 'about') {
+        clearAboutNavActive();
+    }
+
+    if (anchorId) {
+        const target = document.getElementById(anchorId);
+        if (target) {
+            setActiveAboutNavLink('#' + anchorId);
+            requestAnimationFrame(() => {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                window.setTimeout(updateAboutNavActive, 450);
+            });
+            lucide.createIcons();
+            return;
+        }
+    }
+
+    if (currentView === 'about') {
+        requestAnimationFrame(updateAboutNavActive);
+    }
+
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        if (isMonitorRoute()) {
+            if (typeof envChart !== 'undefined' && envChart) envChart.resize();
+            if (typeof detectionChart !== 'undefined' && detectionChart) detectionChart.resize();
+            if (typeof severityChart !== 'undefined' && severityChart) severityChart.resize();
+        }
+    });
+
+    lucide.createIcons();
+}
+
+function initAboutNav() {
+    document.querySelectorAll('.ht-about-nav__link').forEach((link) => {
+        link.addEventListener('click', (e) => {
+            const href = (link.getAttribute('href') || '').trim();
+            if (!href.startsWith('#')) return;
+            e.preventDefault();
+            const hash = href.toLowerCase();
+            setActiveAboutNavLink(hash);
+            if ((location.hash || '').toLowerCase() !== hash) {
+                location.hash = hash;
+            } else {
+                showView('about');
+            }
+        });
+    });
+
+    window.addEventListener('scroll', onAboutPageScroll, { passive: true });
+}
+
+function initRouter() {
+    window.addEventListener('hashchange', () => showView(getRouteFromHash()));
+    initAboutNav();
+    showView(getRouteFromHash());
+}
+
+// ============================================
+// TIME & UTILITIES
+// ============================================
+function updateTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', {
+        hour12: true,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    const timeEl = document.getElementById('liveTime');
+    if (timeEl) timeEl.textContent = timeStr;
+
+    if (currentView !== 'live') return;
+
+    const tsEls = ['normalTimestamp', 'thermalTimestamp'];
+    tsEls.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = now.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    });
+
+    const fpsEls = ['normalFps', 'thermalFps'];
+    fpsEls.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = `${(28 + Math.random() * 4).toFixed(1)} FPS | ${id.includes('normal') ? '640x480' : '320x240'}`;
+    });
+}
+
+function formatTimestamp(date) {
+    return date.toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    });
+}
+
+function parseDateInput(value, endOfDay = false) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    if (endOfDay) {
+        parsed.setHours(23, 59, 59, 999);
+    } else {
+        parsed.setHours(0, 0, 0, 0);
+    }
+    return parsed;
+}
+
+function getLogDateBounds() {
+    const rangeEl = document.getElementById('logDateRange');
+    if (!rangeEl) return { start: null, end: null };
+    const range = rangeEl.value;
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    let start = null;
+
+    if (range === 'all') {
+        return { start: null, end: null };
+    }
+
+    if (range === 'today') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        return { start, end };
+    }
+
+    if (range === 'last7') {
+        start = new Date(end);
+        start.setDate(start.getDate() - 6);
+        start.setHours(0, 0, 0, 0);
+    } else if (range === 'last30') {
+        start = new Date(end);
+        start.setDate(start.getDate() - 29);
+        start.setHours(0, 0, 0, 0);
+    } else if (range === 'custom') {
+        const startVal = document.getElementById('logCustomStart')?.value;
+        const endVal = document.getElementById('logCustomEnd')?.value;
+        const parsedStart = parseDateInput(startVal);
+        const parsedEnd = parseDateInput(endVal, true);
+        if (parsedStart && parsedEnd) {
+            start = parsedStart;
+            return { start, end: parsedEnd };
+        }
+        if (parsedStart) {
+            start = parsedStart;
+            return { start, end };
+        }
+        if (parsedEnd) {
+            return { start: new Date(0), end: parsedEnd };
+        }
+    }
+
+    return { start, end };
+}
+
+function toggleCustomLogRangeInputs() {
+    const showCustom = document.getElementById('logDateRange')?.value === 'custom';
+    const customRange = document.getElementById('logCustomRange');
+    if (customRange) {
+        customRange.classList.toggle('u-hidden', !showCustom);
+    }
+}
+
+async function toggleFullscreen(element) {
+    if (!element || !document.fullscreenEnabled) return;
+    try {
+        if (document.fullscreenElement === element) {
+            await document.exitFullscreen();
+        } else if (!document.fullscreenElement) {
+            await element.requestFullscreen();
+        }
+    } catch (error) {
+        console.error('Fullscreen toggle failed:', error);
+    }
+}
+
+function syncCameraZoomCursor(container) {
+    if (!container) return;
+    const isFull = document.fullscreenElement === container;
+    container.classList.toggle('camera-feed--fullscreen', isFull);
+    container.title = isFull ? 'Click to exit fullscreen' : 'Click to expand fullscreen';
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function initWheelZoom(container) {
+    if (!container) return;
+    const layer = container.querySelector('.camera-zoom-layer');
+    if (!layer) return;
+
+    const zoom = {
+        scale: 1,
+        min: 1,
+        max: 3.5,
+        x: 0,
+        y: 0,
+        isPanning: false,
+        panStartX: 0,
+        panStartY: 0,
+        originX: 0,
+        originY: 0,
+    };
+    const drag = {
+        downX: 0,
+        downY: 0,
+        moved: false,
+        suppressClickUntil: 0,
+    };
+    let rafPending = false;
+
+    function clampPan() {
+        const rect = container.getBoundingClientRect();
+        const w = rect.width || 0;
+        const h = rect.height || 0;
+        if (!w || !h) return;
+
+        // With transform-origin: 0 0 and transform: translate(x,y) scale(s)
+        // Keep the scaled layer covering the container:
+        // x ∈ [w - w*s, 0], y ∈ [h - h*s, 0]
+        const minX = w - w * zoom.scale;
+        const minY = h - h * zoom.scale;
+        zoom.x = clamp(zoom.x, minX, 0);
+        zoom.y = clamp(zoom.y, minY, 0);
+    }
+
+    function applyNow() {
+        clampPan();
+        layer.style.transform = `translate3d(${zoom.x}px, ${zoom.y}px, 0) scale(${zoom.scale})`;
+        const zoomed = zoom.scale > 1.001;
+        container.classList.toggle('camera-zooming', zoomed);
+        container.classList.toggle('is-panning', zoom.isPanning);
+    }
+
+    function apply() {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+            rafPending = false;
+            applyNow();
+        });
+    }
+
+    function reset() {
+        zoom.scale = 1;
+        zoom.x = 0;
+        zoom.y = 0;
+        zoom.isPanning = false;
+        applyNow();
+    }
+
+    // Expose a reset helper so navigation can restore camera zoom.
+    container.resetZoom = reset;
+
+    function getPoint(e) {
+        const rect = container.getBoundingClientRect();
+        return {
+            cx: e.clientX - rect.left,
+            cy: e.clientY - rect.top
+        };
+    }
+
+    container.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        reset();
+    });
+
+    // If user dragged (pan attempt), suppress the click that would toggle fullscreen
+    container.addEventListener('click', (e) => {
+        if (Date.now() < drag.suppressClickUntil) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }, true);
+
+    container.addEventListener('wheel', (e) => {
+        // allow page scroll if not hovering the camera
+        e.preventDefault();
+
+        const { cx, cy } = getPoint(e);
+        const oldScale = zoom.scale;
+        const delta = -e.deltaY;
+        const zoomFactor = delta > 0 ? 1.12 : 1 / 1.12;
+        const newScale = clamp(oldScale * zoomFactor, zoom.min, zoom.max);
+        if (Math.abs(newScale - oldScale) < 0.0001) return;
+
+        // Zoom towards cursor: keep (cx,cy) stable in screen space
+        const scaleRatio = newScale / oldScale;
+        zoom.x = cx - (cx - zoom.x) * scaleRatio;
+        zoom.y = cy - (cy - zoom.y) * scaleRatio;
+        zoom.scale = newScale;
+
+        // If returning to 1x, snap to origin
+        if (zoom.scale <= 1.001) {
+            zoom.scale = 1;
+            zoom.x = 0;
+            zoom.y = 0;
+        }
+
+        apply();
+    }, { passive: false });
+
+    container.addEventListener('pointerdown', (e) => {
+        drag.downX = e.clientX;
+        drag.downY = e.clientY;
+        drag.moved = false;
+
+        if (zoom.scale <= 1.001) return;
+        // Don't start panning when clicking on overlay controls
+        if (e.target.closest('button, select, input, a, label')) return;
+        zoom.isPanning = true;
+        container.setPointerCapture(e.pointerId);
+        zoom.panStartX = e.clientX;
+        zoom.panStartY = e.clientY;
+        zoom.originX = zoom.x;
+        zoom.originY = zoom.y;
+        applyNow();
+    });
+
+    container.addEventListener('pointermove', (e) => {
+        const dx = e.clientX - drag.downX;
+        const dy = e.clientY - drag.downY;
+        if (!drag.moved && (dx * dx + dy * dy) > (6 * 6)) {
+            drag.moved = true;
+        }
+        if (!zoom.isPanning) return;
+        zoom.x = zoom.originX + (e.clientX - zoom.panStartX);
+        zoom.y = zoom.originY + (e.clientY - zoom.panStartY);
+        apply();
+    });
+
+    // If user dragged (even at 1x), suppress the click-to-fullscreen.
+    container.addEventListener('pointerup', () => {
+        if (drag.moved) drag.suppressClickUntil = Date.now() + 250;
+    });
+
+    function endPan(e) {
+        if (!zoom.isPanning) return;
+        zoom.isPanning = false;
+        try {
+            container.releasePointerCapture(e.pointerId);
+        } catch (_) { /* ignore */ }
+        apply();
+    }
+
+    container.addEventListener('pointerup', endPan);
+    container.addEventListener('pointercancel', endPan);
+    container.addEventListener('pointerleave', (e) => {
+        // only end if pointer isn't captured
+        if (!zoom.isPanning) return;
+        endPan(e);
+    });
+
+    // If fullscreen changes, sizes change; re-clamp pan
+    document.addEventListener('fullscreenchange', apply);
+    window.addEventListener('resize', apply);
+
+    applyNow();
+}
+
+function generateDetection(isHeatStress = false) {
+    let status = 'NORMAL';
+    let baseTemp = 39 + Math.random() * 1.5;
+    let confidence = 0.85 + Math.random() * 0.14;
+    let severity = 'LOW';
+
+    if (isHeatStress) {
+        status = 'HEAT STRESS';
+        baseTemp = 41 + Math.random() * 3;
+        confidence = 0.75 + Math.random() * 0.24;
+        severity = baseTemp > 43 ? 'CRITICAL' : baseTemp > 42 ? 'HIGH' : 'MODERATE';
+    } else {
+        const isMild = Math.random() > 0.5;
+        if (isMild) {
+            status = 'MILD';
+            baseTemp = 40.5 + Math.random() * 1.2;
+            confidence = 0.78 + Math.random() * 0.12;
+            severity = 'MODERATE';
+        }
+    }
+
+    return {
+        id: `DET-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date(),
+        status,
+        isHeatStress: status === 'HEAT STRESS',
+        bodyTemp: parseFloat(baseTemp.toFixed(1)),
+        confidence: parseFloat(confidence.toFixed(3)),
+        duration: status === 'HEAT STRESS' ? `${Math.floor(Math.random() * 45) + 5}m` : '0m',
+        severity
+    };
+}
+
+function buildRecommendationFromDetection(detection) {
+    const severity = detection?.severity || 'MODERATE';
+    const recs = recommendations[severity] || recommendations.MODERATE;
+    const base = recs[0] || { action: 'Review detection details and follow farm protocol.', icon: 'clipboard-list', type: 'info' };
+    return {
+        ...base,
+        id: `toast-${detection.id}`,
+        timestamp: formatTimestamp(detection.timestamp),
+        severity,
+        bodyTemp: detection.bodyTemp,
+        confidence: Math.round((detection.confidence || 0) * 100),
+        isHeatStress: detection.isHeatStress,
+        detectionId: detection.id
+    };
+}
+
+/** Single source of truth for KPI cards and Detection Snapshot modals. */
+function getDetectionCounts(detections = state.detections) {
+    let stress = 0;
+    let mild = 0;
+    let normal = 0;
+    let critical = 0;
+
+    for (const d of detections) {
+        if (d.status === 'HEAT STRESS') {
+            stress++;
+        } else if (d.status === 'MILD') {
+            mild++;
+        } else if (d.status === 'NORMAL') {
+            normal++;
+        }
+        if (d.severity === 'CRITICAL') {
+            critical++;
+        }
+    }
+
+    return {
+        stress,
+        mild,
+        normal,
+        critical,
+        total: stress + mild + normal
+    };
+}
+
+function applyDetectionCountsToStats(counts = getDetectionCounts()) {
+    state.stats.stressCount = counts.stress;
+    state.stats.mildCount = counts.mild;
+    state.stats.normalCount = counts.normal;
+    state.stats.criticalCount = counts.critical;
+
+    const stressEl = document.getElementById('stressCount');
+    const normalEl = document.getElementById('normalCount');
+    const mildEl = document.getElementById('mildCount');
+    const criticalEl = document.getElementById('criticalCount');
+    if (stressEl) stressEl.textContent = counts.stress;
+    if (normalEl) normalEl.textContent = counts.normal;
+    if (mildEl) mildEl.textContent = counts.mild;
+    if (criticalEl) criticalEl.textContent = counts.critical;
+}
+
+// ============================================
+// SENSOR SIMULATION
+// ============================================
+function simulateSensorUpdate() {
+    if (!isMonitorRoute()) return;
+
+    const temp = parseFloat((30 + Math.random() * 12).toFixed(1));
+    const humidity = parseFloat((50 + Math.random() * 35).toFixed(1));
+    const heatIndex = parseFloat((temp + (humidity - 50) * 0.1 + Math.random() * 2).toFixed(1));
+    const thi = parseFloat((0.8 * temp + 0.01 * humidity * (0.9 * temp - 14.3) + 46.3).toFixed(1));
+
+    state.sensorHistory.temp.push(temp);
+    state.sensorHistory.humidity.push(humidity);
+    state.sensorHistory.heatIndex.push(heatIndex);
+    state.sensorHistory.labels.push('');
+
+    // Keep only last 30 readings
+    if (state.sensorHistory.temp.length > 30) {
+        state.sensorHistory.temp.shift();
+        state.sensorHistory.humidity.shift();
+        state.sensorHistory.heatIndex.shift();
+        state.sensorHistory.labels.shift();
+    }
+
+    updateSensorReadings(temp, humidity, heatIndex, thi);
+    updateEnvChart();
+}
+
+function updateSensorReadings(temp, humidity, heatIndex, thi) {
+    // Default values if not provided
+    temp = temp || state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34.5;
+    humidity = humidity || state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1] || 68.2;
+    heatIndex = heatIndex || state.sensorHistory.heatIndex[state.sensorHistory.heatIndex.length - 1] || 36.8;
+    thi = thi || parseFloat((0.8 * temp + 0.01 * humidity * (0.9 * temp - 14.3) + 46.3).toFixed(1));
+
+    // Temperature
+    document.getElementById('tempValue').textContent = temp.toFixed(1);
+    const tempPercent = Math.min(100, Math.max(0, ((temp - 20) / 30) * 100));
+    document.getElementById('tempBar').style.width = tempPercent + '%';
+
+    // Humidity
+    document.getElementById('humidValue').textContent = humidity.toFixed(1);
+    const humidPercent = Math.min(100, Math.max(0, humidity));
+    document.getElementById('humidBar').style.width = humidPercent + '%';
+
+    // Heat Index
+    document.getElementById('heatIndexValue').textContent = heatIndex.toFixed(1);
+    const hiPercent = Math.min(100, Math.max(0, ((heatIndex - 20) / 30) * 100));
+    document.getElementById('heatIndexBar').style.width = hiPercent + '%';
+
+    const hiStatus = document.getElementById('heatIndexStatus');
+    if (heatIndex >= 45) {
+        hiStatus.textContent = 'DANGER';
+        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--danger';
+    } else if (heatIndex >= 40) {
+        hiStatus.textContent = 'EXTREME CAUTION';
+        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--warn';
+    } else if (heatIndex >= 35) {
+        hiStatus.textContent = 'CAUTION';
+        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--caution';
+    } else {
+        hiStatus.textContent = 'NORMAL';
+        hiStatus.className = 'ht-sensor-pill ht-sensor-pill--normal';
+    }
+
+    // THI
+    document.getElementById('thiValue').textContent = thi.toFixed(1);
+    const thiPercent = Math.min(100, Math.max(0, ((thi - 60) / 30) * 100));
+    document.getElementById('thiBar').style.width = thiPercent + '%';
+
+    const thiStatus = document.getElementById('thiStatus');
+    if (thi >= 82) {
+        thiStatus.textContent = 'SEVERE';
+        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--danger';
+    } else if (thi >= 75) {
+        thiStatus.textContent = 'DANGER';
+        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--warn';
+    } else if (thi >= 68) {
+        thiStatus.textContent = 'ALERT';
+        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--caution';
+    } else {
+        thiStatus.textContent = 'NORMAL';
+        thiStatus.className = 'ht-sensor-pill ht-sensor-pill--normal';
+    }
+}
+
+// ============================================
+// DETECTION SIMULATION
+// ============================================
+function simulateDetection() {
+    if (!isMonitorRoute()) return;
+    if (!state.cameraActive || !state.aiActive) return;
+
+    const isHeatStress = Math.random() > 0.55;
+    const detection = generateDetection(isHeatStress);
+    state.detections.unshift(detection);
+
+    // Keep only last 100 detections
+    if (state.detections.length > 100) state.detections.pop();
+
+    updateStats();
+    renderDetectionLogs();
+    renderLiveDetections();
+    renderRecommendations();
+    updateDetectionChart();
+    updateSeverityChart();
+
+    // Show alert for heat stress
+    if (isHeatStress) {
+        showAlert(detection);
+        showToast(detection);
+    }
+}
+
+function updateStats() {
+    applyDetectionCountsToStats(getDetectionCounts());
+}
+
+// ============================================
+// ANNOTATION DRAWING
+// ============================================
+function drawAnnotations() {
+    updateAnnotations();
+}
+
+function updateAnnotations() {
+    if (currentView !== 'live') return;
+    const normalContainer = document.getElementById('normalAnnotations');
+    const thermalContainer = document.getElementById('thermalAnnotations');
+    const normalStats = document.getElementById('normalDuckStats');
+    const thermalStats = document.getElementById('thermalDuckStats');
+
+    // Clear existing
+    if (normalContainer) normalContainer.innerHTML = '';
+    if (thermalContainer) thermalContainer.innerHTML = '';
+
+    if (!state.cameraActive || !state.aiActive) {
+        const statsHtml = `
+            <div>Ducks: 0</div>
+            <div>Normal: 0</div>
+            <div>Mild: 0</div>
+            <div>Heat Stress: 0</div>
+        `;
+        if (normalStats) normalStats.innerHTML = statsHtml;
+        if (thermalStats) thermalStats.innerHTML = statsHtml;
+        return;
+    }
+
+    // Simulate 2-5 detected ducks
+    const numDetections = 2 + Math.floor(Math.random() * 4);
+    let heatStressCount = 0;
+    let mildCount = 0;
+    let normalCount = 0;
+
+    for (let i = 0; i < numDetections; i++) {
+        const statusRoll = Math.random();
+        const status = statusRoll > 0.72 ? 'HEAT STRESS' : statusRoll > 0.35 ? 'MILD' : 'NORMAL';
+        if (status === 'HEAT STRESS') {
+            heatStressCount++;
+        } else if (status === 'MILD') {
+            mildCount++;
+        } else {
+            normalCount++;
+        }
+        const bodyTemp = status === 'HEAT STRESS' ? (41 + Math.random() * 3).toFixed(1) : status === 'MILD' ? (40.5 + Math.random() * 1.2).toFixed(1) : (39 + Math.random() * 1.5).toFixed(1);
+
+        // Random position within camera view
+        const x = 10 + Math.random() * 50; // percentage
+        const y = 15 + Math.random() * 50;
+        const w = 12 + Math.random() * 15;
+        const h = 10 + Math.random() * 12;
+        const confidence = (0.75 + Math.random() * 0.24).toFixed(0) * 100;
+
+        const colorClass = status === 'HEAT STRESS' ? 'ht-detect-box--stress' : status === 'MILD' ? 'ht-detect-box--mild' : 'ht-detect-box--ok';
+        const thermalClass = status === 'HEAT STRESS' ? 'ht-detect-box--thermal-stress' : status === 'MILD' ? 'ht-detect-box--thermal-mild' : 'ht-detect-box--thermal-ok';
+        const normalTagClass = status === 'HEAT STRESS' ? 'ht-detect-tag--flag-stress' : status === 'MILD' ? 'ht-detect-tag--flag-mild' : 'ht-detect-tag--flag-ok';
+        const thermalTagClass = status === 'HEAT STRESS' ? 'ht-detect-tag--tf-stress' : status === 'MILD' ? 'ht-detect-tag--tf-mild' : 'ht-detect-tag--tf-ok';
+        const labelText = status === 'HEAT STRESS' ? 'ELEVATED' : status === 'MILD' ? 'MILD' : 'NORMAL';
+
+        // Normal camera annotation
+        const normalBox = document.createElement('div');
+        normalBox.className = `detection-box ${colorClass}`;
+        normalBox.style.cssText = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
+        normalBox.innerHTML = `
+            <div class="ht-detect-cap">
+                <span class="ht-detect-tag ${normalTagClass}">${labelText}</span>
+            </div>
+            <div class="ht-detect-meta ${status === 'HEAT STRESS' ? 'ht-detect-meta--rgb-stress' : status === 'MILD' ? 'ht-detect-meta--rgb-ok' : 'ht-detect-meta--rgb-ok'}">
+                ${bodyTemp}°C | HI:${(parseFloat(bodyTemp) + 2 + Math.random() * 3).toFixed(1)}°C
+            </div>
+        `;
+        normalContainer.appendChild(normalBox);
+
+        // Thermal camera annotation
+        const thermalBox = document.createElement('div');
+        thermalBox.className = `detection-box ${thermalClass}`;
+        thermalBox.style.cssText = `left:${x + 2}%;top:${y + 3}%;width:${w - 2}%;height:${h - 2}%`;
+        thermalBox.innerHTML = `
+            <div class="ht-detect-cap">
+                <span class="ht-detect-tag ${thermalTagClass}">${labelText}</span>
+            </div>
+            <div class="ht-detect-meta ${status === 'HEAT STRESS' ? 'ht-detect-meta--th-stress' : status === 'MILD' ? 'ht-detect-meta--th-ok' : 'ht-detect-meta--th-ok'}">
+                ${bodyTemp}°C | HI:${(parseFloat(bodyTemp) + 2 + Math.random() * 3).toFixed(1)}°C
+            </div>
+        `;
+        thermalContainer.appendChild(thermalBox);
+    }
+
+    const statsHtml = `
+        <div>Ducks: ${numDetections}</div>
+        <div>Normal: ${normalCount}</div>
+        <div>Mild: ${mildCount}</div>
+        <div>Heat Stress: ${heatStressCount}</div>
+    `;
+    if (normalStats) normalStats.innerHTML = statsHtml;
+    if (thermalStats) thermalStats.innerHTML = statsHtml;
+}
+
+// ============================================
+// RENDERING FUNCTIONS
+// ============================================
+function renderDetectionLogs() {
+    const tbody = document.getElementById('detectionLogBody');
+    const statusFilter = document.getElementById('logFilter').value;
+    const { start, end } = getLogDateBounds();
+
+    let filtered = state.detections.slice();
+    if (statusFilter === 'heatstress') filtered = filtered.filter(d => d.status === 'HEAT STRESS');
+    if (statusFilter === 'mild') filtered = filtered.filter(d => d.status === 'MILD');
+    if (statusFilter === 'normal') filtered = filtered.filter(d => d.status === 'NORMAL');
+
+    if (start || end) {
+        filtered = filtered.filter(d => {
+            const ts = d.timestamp instanceof Date ? d.timestamp : new Date(d.timestamp);
+            if (start && ts < start) return false;
+            if (end && ts > end) return false;
+            return true;
+        });
+    }
+
+    const totalPages = Math.ceil(filtered.length / state.pageSize) || 1;
+    state.currentPage = Math.min(state.currentPage, totalPages);
+    const startIndex = (state.currentPage - 1) * state.pageSize;
+    const pageData = filtered.slice(startIndex, startIndex + state.pageSize);
+
+    tbody.innerHTML = pageData.map(d => {
+        const sevPill = d.severity === 'CRITICAL' ? 'ht-pill ht-pill--critical' :
+            d.severity === 'HIGH' ? 'ht-pill ht-pill--high' :
+            d.severity === 'MODERATE' ? 'ht-pill ht-pill--moderate' :
+            'ht-pill ht-pill--low';
+
+        const statusWrap = d.status === 'HEAT STRESS' ? 'ht-log-status ht-log-status--stress' : d.status === 'MILD' ? 'ht-log-status ht-log-status--warn' : 'ht-log-status ht-log-status--ok';
+        const statusIcon = d.status === 'HEAT STRESS' ? 'alert-triangle' : d.status === 'MILD' ? 'sun' : 'check-circle';
+        const flash = d.status === 'HEAT STRESS' ? ' ht-log-row--flash' : '';
+        const tempClass = d.bodyTemp > 42 ? 'ht-log-temp--hi' : d.bodyTemp > 41 ? 'ht-log-temp--mid' : 'ht-log-temp--ok';
+
+        return `
+            <tr class="ht-log-row-clickable${flash}" data-detection-id="${d.id}">
+                <td class="ht-log-cell--mono">${formatTimestamp(d.timestamp)}</td>
+                <td>
+                    <div class="${statusWrap}">
+                        <i data-lucide="${statusIcon}"></i>
+                        <span>${d.status}</span>
+                    </div>
+                </td>
+                <td class="ht-log-cell--mono ${tempClass}">${d.bodyTemp}°C</td>
+                <td class="ht-log-cell--mono ht-log-dur">${d.duration}</td>
+                <td><span class="${sevPill}">${d.severity}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    document.getElementById('logCount').textContent = `Showing ${pageData.length} of ${filtered.length} records`;
+    document.getElementById('pageInfo').textContent = `${state.currentPage}/${totalPages}`;
+
+    // Attach click handlers for rows that open recommendation details
+    tbody.querySelectorAll('tr[data-detection-id]').forEach(row => {
+        row.addEventListener('click', () => {
+            const id = row.getAttribute('data-detection-id');
+            const detection = state.detections.find(item => item.id === id);
+            if (!detection) return;
+            const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
+            const rec = buildRecommendationFromDetection(detection);
+            openRecommendationModal(rec, currentTemp);
+        });
+    });
+
+    // Reinitialize lucide icons for new elements
+    lucide.createIcons();
+}
+
+function renderLiveDetections() {
+    const container = document.getElementById('liveDetections');
+    if (!container) return;
+    const recent = state.detections.slice(0, 8);
+
+    container.innerHTML = recent.map(d => {
+        const rowClass = d.status === 'HEAT STRESS' ? 'ht-live-item ht-live-item--stress' : d.status === 'MILD' ? 'ht-live-item ht-live-item--mild' : 'ht-live-item ht-live-item--ok';
+        const icon = d.status === 'HEAT STRESS' ? 'alert-triangle' : d.status === 'MILD' ? 'sun' : 'shield-check';
+
+        return `
+            <div class="${rowClass}">
+                <div class="ht-live-item__ico">
+                    <i data-lucide="${icon}"></i>
+                </div>
+                <div class="ht-live-item__main">
+                    <div class="ht-live-item__row">
+                        <span class="ht-live-item__tag">${d.status}</span>
+                    </div>
+                    <div class="ht-live-item__meta">${d.bodyTemp}°C • ${Math.round(d.confidence * 100)}% conf</div>
+                </div>
+                <div class="ht-live-item__time">${formatRelativeTime(d.timestamp)}</div>
+            </div>
+        `;
+    }).join('');
+
+    lucide.createIcons();
+}
+
+function renderRecommendations() {
+    const container = document.getElementById('recommendationsList');
+    const activeRecs = [];
+
+    // Get the latest heat stress detections
+    const recentStress = state.detections.filter(d => d.isHeatStress).slice(0, 5);
+
+    // General environmental recommendations based on current temp
+    const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
+    let envRecs = [];
+
+    if (currentTemp > 40) {
+        envRecs = recommendations.CRITICAL;
+    } else if (currentTemp > 37) {
+        envRecs = recommendations.HIGH;
+    } else if (currentTemp > 34) {
+        envRecs = recommendations.MODERATE;
+    } else {
+        envRecs = recommendations.LOW;
+    }
+
+    // Add environmental recommendations
+    envRecs.forEach(rec => {
+        activeRecs.push({
+            ...rec,
+            id: `env-${rec.action}`,
+            timestamp: formatTimestamp(new Date()),
+            severity: currentTemp > 40 ? 'CRITICAL' : currentTemp > 37 ? 'HIGH' : currentTemp > 34 ? 'MODERATE' : 'LOW',
+            bodyTemp: currentTemp,
+            confidence: null,
+            isHeatStress: currentTemp > 34
+        });
+    });
+
+    // Add duck-specific recommendations
+    recentStress.forEach(d => {
+        const recs = recommendations[d.severity] || recommendations.MODERATE;
+        activeRecs.push({
+            ...recs[0],
+            id: `duck-${d.id}`,
+            timestamp: formatTimestamp(d.timestamp),
+            severity: d.severity,
+            bodyTemp: d.bodyTemp,
+            confidence: Math.round(d.confidence * 100),
+            isHeatStress: d.isHeatStress
+        });
+    });
+
+    // Limit to 8 recommendations
+    const displayRecs = activeRecs.slice(0, 8);
+
+    container.innerHTML = displayRecs.map(r => {
+        const cardClass = REC_SEVERITY_CLASS[r.severity] || REC_SEVERITY_CLASS.LOW;
+        const category = getRecCategoryLabel(r);
+        const tip = getRecTip(r);
+
+        return `
+            <button type="button" data-rec-id="${r.id}" class="${cardClass}" role="listitem">
+                <div class="ht-rec-card__inner">
+                    <div class="ht-rec-card__badge">
+                        <i data-lucide="${r.icon}"></i>
+                    </div>
+                    <div class="ht-rec-card__content">
+                        <div class="ht-rec-card__top">
+                            <div class="ht-rec-card__action">${r.action}</div>
+                            <span class="ht-rec-sev">${r.severity}</span>
+                        </div>
+                        <div class="ht-rec-card__meta">
+                            <span class="ht-rec-card__category">${category}</span>
+                        </div>
+                        <p class="ht-rec-card__tip">${tip}</p>
+                        <div class="ht-rec-card__time">${r.timestamp}</div>
+                    </div>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    container.querySelectorAll('[data-rec-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const { recId } = btn.dataset;
+            const selected = displayRecs.find(r => r.id === recId);
+            if (selected) {
+                openRecommendationModal(selected, currentTemp);
+            }
+        });
+    });
+
+    document.getElementById('recBadge').textContent = `${displayRecs.length} Active`;
+
+    lucide.createIcons();
+}
+
+function openRecommendationModal(rec, currentTemp) {
+    const modal = document.getElementById('recommendationModal');
+    const body = document.getElementById('recommendationModalBody');
+    if (!modal || !body) return;
+
+    const guidanceLines = getRecommendationGuidance(rec);
+    const resultSummary = getRecommendationResultSummary(rec, currentTemp);
+    const explanation = getRecommendationExplanation(rec, currentTemp);
+    const preventionTips = getRecommendationPreventionTips(rec);
+    const envInsights = getRecommendationEnvInsights(rec, currentTemp);
+    const tempGuidance = getRecommendationTempGuidance(rec, currentTemp);
+    const severityClass = rec.severity ? rec.severity.toLowerCase() : 'low';
+    const heroClass = `ht-modal-hero ht-modal-hero--${severityClass}`;
+    const resultHtml = resultSummary.map(item => `
+        <div class="ht-modal-kv__item">
+            <div class="ht-modal-kv__label">${item.label}</div>
+            <div class="ht-modal-kv__val">${item.value}</div>
+        </div>
+    `).join('');
+    const guidanceHtml = guidanceLines.map(line => `<li>${line}</li>`).join('');
+    const preventionHtml = preventionTips.map(line => `<li>${line}</li>`).join('');
+    const envHtml = envInsights.map(line => `<li>${line}</li>`).join('');
+    const tempHtml = tempGuidance.map(line => `<li>${line}</li>`).join('');
+
+    body.innerHTML = `
+        <div class="${heroClass}">
+            <div class="ht-modal-row">
+                <div>
+                    <div class="ht-modal-action">${rec.action}</div>
+                    <div class="ht-modal-src">${getRecCategoryLabel(rec)}</div>
+                </div>
+                <span class="ht-modal-sev">${rec.severity}</span>
+            </div>
+            <p class="ht-modal-explanation">${explanation}</p>
+        </div>
+
+        <div class="ht-modal-detail-grid">
+            <div class="ht-modal-detail-card ht-modal-detail-card--full">
+                <div class="ht-modal-detail-card__head">
+                    <i data-lucide="clipboard-list"></i>
+                    <span>Detection Snapshot</span>
+                </div>
+                <div class="ht-modal-kv">${resultHtml}</div>
+            </div>
+            <div class="ht-modal-detail-card">
+                <div class="ht-modal-detail-card__head">
+                    <i data-lucide="zap"></i>
+                    <span>Suggested Actions</span>
+                </div>
+                <ul class="ht-modal-list">${guidanceHtml}</ul>
+            </div>
+            <div class="ht-modal-detail-card">
+                <div class="ht-modal-detail-card__head">
+                    <i data-lucide="shield"></i>
+                    <span>Heat Stress Prevention</span>
+                </div>
+                <ul class="ht-modal-list">${preventionHtml}</ul>
+            </div>
+            <div class="ht-modal-detail-card">
+                <div class="ht-modal-detail-card__head">
+                    <i data-lucide="cloud-sun"></i>
+                    <span>Environmental Insights</span>
+                </div>
+                <ul class="ht-modal-list">${envHtml}</ul>
+            </div>
+            <div class="ht-modal-detail-card">
+                <div class="ht-modal-detail-card__head">
+                    <i data-lucide="thermometer"></i>
+                    <span>Temperature Guidance</span>
+                </div>
+                <ul class="ht-modal-list">${tempHtml}</ul>
+            </div>
+        </div>
+
+        <div class="ht-disclaimer">
+            <i data-lucide="info"></i>
+            <div>
+                <p class="ht-disclaimer__label">Disclaimer</p>
+                <p class="ht-prose">These results and recommendations are assistive only and may contain errors. Always confirm with direct on-site observation of the flock and follow your established farm protocol or veterinary guidance before taking critical action.</p>
+            </div>
+        </div>
+    `;
+
+    const resetScrollPosition = () => {
+        if (typeof body.scrollTo === 'function') {
+            body.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        } else {
+            body.scrollTop = 0;
+            body.scrollLeft = 0;
+        }
+        if (typeof modal.scrollTo === 'function') {
+            modal.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        } else {
+            modal.scrollTop = 0;
+        }
+    };
+
+    resetScrollPosition();
+    modal.classList.add('is-open');
+    requestAnimationFrame(resetScrollPosition);
+    lucide.createIcons();
+}
+
+function closeRecommendationModal() {
+    const modal = document.getElementById('recommendationModal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+}
+
+function getRecommendationGuidance(rec) {
+    const guidanceBySeverity = {
+        CRITICAL: [
+            'Start cooling right away and keep the hottest birds apart.',
+            'Watch response for 1–3 minutes and be ready to escalate.',
+            'Keep water available and avoid extra handling.'
+        ],
+        HIGH: [
+            'Turn fans and shade on high, then recheck in 10 minutes.',
+            'Reduce crowding and delay non-essential activity.',
+            'Focus on the hottest zones first.'
+        ],
+        MODERATE: [
+            'Use preventive cooling and monitor the trend.',
+            'Check drinkers, vents, and shade coverage.',
+            'Be ready to act if temperatures rise again.'
+        ],
+        LOW: [
+            'Keep regular monitoring active.',
+            'Verify water and airflow are working.',
+            'Note any new heat spikes for the next check.'
+        ]
+    };
+
+    return guidanceBySeverity[rec.severity] || guidanceBySeverity.MODERATE;
+}
+
+function getRecommendationExplanation(rec, currentTemp) {
+    const temp = rec.bodyTemp || currentTemp;
+    const confidence = rec.confidence ? `${rec.confidence}%` : 'high';
+    if (rec.isHeatStress) {
+        return `Heat stress is likely at ${temp.toFixed(1)}°C. This recommendation is based on thermal data with ${confidence} confidence, so act quickly to lower heat load.`;
+    }
+
+    return `Current conditions are not critical, but the system recommends preventive cooling because temperatures are elevated around ${temp.toFixed(1)}°C.`;
+}
+
+function getRecommendationPreventionTips(rec) {
+    const bySeverity = {
+        CRITICAL: [
+            'Open airflow and keep water available.',
+            'Avoid unnecessary movement or handling.',
+            'Keep the hottest animals separated from the group.'
+        ],
+        HIGH: [
+            'Boost shade and fan output where it is hottest.',
+            'Check that all birds can reach water easily.',
+            'Delay extra handling until conditions calm.'
+        ],
+        MODERATE: [
+            'Check vents, water, and shade before heat rises.',
+            'Move cooling equipment closer if needed.',
+            'Track the trend for any quick changes.'
+        ],
+        LOW: [
+            'Keep normal checks active and log peak readings.',
+            'Confirm fans and water are working properly.',
+            'Stay ready for a quick response if heat rises.'
+        ]
+    };
+
+    const base = bySeverity[rec.severity] || bySeverity.MODERATE;
+    return rec.tip ? [rec.tip, base[0], base[1]] : base;
+}
+
+function getRecommendationEnvInsights(rec, currentTemp) {
+    const humid = state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1];
+    const hi = state.sensorHistory.heatIndex[state.sensorHistory.heatIndex.length - 1];
+    const humidStr = humid != null ? `${humid.toFixed(0)}%` : 'unknown';
+    const hiStr = hi != null ? `${hi.toFixed(0)}°C` : 'unknown';
+
+    return [
+        `Ambient ${currentTemp.toFixed(1)}°C, humidity ${humidStr}.`,
+        `Heat index ${hiStr} shows how moisture raises stress.`,
+        rec.severity === 'CRITICAL' || rec.severity === 'HIGH'
+            ? 'Heat risk is high now — cool the space first.'
+            : 'Conditions are moderate but should be watched closely.'
+    ];
+}
+
+function getRecommendationTempGuidance(rec, currentTemp) {
+    const bodyTemp = rec.bodyTemp != null ? rec.bodyTemp : currentTemp;
+    const recheck = rec.severity === 'CRITICAL' ? '1–3 min' : rec.severity === 'HIGH' ? '10 min' : rec.severity === 'MODERATE' ? '15 min' : '30 min';
+
+    return [
+        `Temperature: ${typeof bodyTemp === 'number' ? bodyTemp.toFixed(1) : bodyTemp}°C.`,
+        `Recheck in ${recheck}.`,
+        rec.confidence
+            ? `Confidence ${rec.confidence}% — confirm with a quick visual check.`
+            : 'Verify with a quick visual or thermal check before acting.'
+    ];
+}
+
+function getRecommendationResultSummary(rec, currentTemp) {
+    const counts = getDetectionCounts();
+    const recheckMap = { CRITICAL: 'Immediately', HIGH: 'Within 10 min', MODERATE: 'Within 15 min', LOW: 'Next 30 min' };
+    const duckCount = (n) => `${n} duck${n !== 1 ? 's' : ''}`;
+
+    return [
+        { label: 'Detection Time', value: rec.timestamp },
+        { label: 'Severity Level', value: rec.severity },
+        { label: 'Detected Body Temp', value: rec.bodyTemp != null ? `${rec.bodyTemp}°C` : `${currentTemp.toFixed(1)}°C (ambient)` },
+        { label: 'Barn Ambient Temp', value: `${currentTemp.toFixed(1)}°C` },
+        { label: 'Heat Stress Detected', value: duckCount(counts.stress) },
+        { label: 'Normal Ducks', value: duckCount(counts.normal) },
+        { label: 'Mild Detections', value: duckCount(counts.mild) },
+        { label: 'Critical Cases', value: duckCount(counts.critical) },
+        { label: 'Recommended Recheck', value: recheckMap[rec.severity] || 'Within 15 min' }
+    ];
+}
+
+function formatRelativeTime(date) {
+    const diff = (Date.now() - date.getTime()) / 1000;
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ============================================
+// ALERTS SYSTEM
+// ============================================
+function showAlert(detection) {
+    state.alerts.unshift(detection);
+    if (state.alerts.length > 20) state.alerts.pop();
+    state.alertCount = state.alerts.length;
+
+    const badge = document.getElementById('alertBadge');
+    badge.textContent = state.alertCount;
+    badge.classList.remove('u-hidden');
+
+    const alertList = document.getElementById('alertList');
+    alertList.innerHTML = state.alerts.map(a => `
+        <button type="button" data-alert-id="${a.id}" class="ht-alert-item">
+            <div class="ht-alert-item__row">
+                <i data-lucide="alert-triangle"></i>
+                <div class="ht-alert-item__body">
+                    <div class="ht-alert-item__title">Heat stress detected</div>
+                    <div class="ht-alert-item__sub">${a.bodyTemp}°C • ${a.severity}</div>
+                </div>
+                <span class="ht-alert-item__time">${formatRelativeTime(a.timestamp)}</span>
+            </div>
+        </button>
+    `).join('');
+
+    alertList.querySelectorAll('[data-alert-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-alert-id');
+            const selected = state.alerts.find(a => a.id === id);
+            if (!selected) return;
+            const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
+            openRecommendationModal(buildRecommendationFromDetection(selected), currentTemp);
+        });
+    });
+
+    lucide.createIcons();
+}
+
+function showToast(detection) {
+    if (!state.alertsEnabled) return;
+
+    const toast = document.getElementById('alertToast');
+    const msg = document.getElementById('toastMessage');
+    const time = document.getElementById('toastTime');
+
+    state.lastToastDetection = detection;
+    msg.textContent = `Heat stress detected. Body temp: ${detection.bodyTemp}°C, Severity: ${detection.severity}`;
+    time.textContent = formatRelativeTime(detection.timestamp);
+
+    toast.classList.add('is-visible');
+
+    setTimeout(() => {
+        toast.classList.remove('is-visible');
+    }, 5000);
+}
+
+function updateSystemToggleStates() {
+    const cameraToggle = document.getElementById('cameraToggle');
+    const aiToggle = document.getElementById('aiToggle');
+    const alertToggle = document.getElementById('alertToggle');
+    const normalCameraContainer = document.getElementById('normalCameraContainer');
+    const thermalCameraContainer = document.getElementById('thermalCameraContainer');
+
+    if (!state.cameraActive) {
+        state.aiActive = false;
+        state.alertsEnabled = false;
+    }
+    if (!state.aiActive) {
+        state.alertsEnabled = false;
+    }
+
+    if (cameraToggle) {
+        cameraToggle.checked = state.cameraActive;
+        cameraToggle.disabled = false;
+    }
+    if (aiToggle) {
+        aiToggle.checked = state.aiActive;
+        aiToggle.disabled = !state.cameraActive;
+    }
+    if (alertToggle) {
+        alertToggle.checked = state.alertsEnabled;
+        alertToggle.disabled = !state.cameraActive || !state.aiActive;
+    }
+
+    [normalCameraContainer, thermalCameraContainer].forEach((container) => {
+        if (!container) return;
+        container.classList.toggle('camera-feed--offline', !state.cameraActive);
+        container.title = state.cameraActive ? 'Click to expand fullscreen' : 'Camera streams are off';
+    });
+
+    document.querySelectorAll('.ht-live-badge').forEach((badge) => {
+        badge.classList.toggle('ht-live-badge--disabled', !state.cameraActive);
+    });
+
+    if (!state.alertsEnabled) {
+        document.getElementById('alertToast')?.classList.remove('is-visible');
+    }
+}
+
+// ============================================
+// CHARTS
+// ============================================
+let envChart, detectionChart, severityChart;
+const detectionLegendState = {
+    Normal: false,
+    Mild: false,
+    'Heat Stress': false,
+};
+
+const detectionStatusLabels = ['Normal', 'Mild', 'Heat Stress'];
+
+function initCharts() {
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        }
+    };
+
+    // Environmental Trend Chart
+    const envCtx = document.getElementById('envChart').getContext('2d');
+    envChart = new Chart(envCtx, {
+        type: 'line',
+        data: {
+            labels: state.sensorHistory.labels,
+            datasets: [
+                {
+                    label: 'Temperature (°C)',
+                    data: state.sensorHistory.temp,
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                },
+                {
+                    label: 'Humidity (%)',
+                    data: state.sensorHistory.humidity,
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96, 165, 250, 0.08)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                },
+                {
+                    label: 'Heat Index (°C)',
+                    data: state.sensorHistory.heatIndex,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    borderDash: [5, 5],
+                }
+            ]
+        },
+        options: {
+            ...chartDefaults,
+            scales: {
+                x: {
+                    display: false,
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(226, 232, 240, 0.8)',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#64748b',
+                        font: { size: 10, family: 'JetBrains Mono' },
+                        padding: 8,
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    titleColor: '#475569',
+                    bodyColor: '#1e293b',
+                    titleFont: { size: 10 },
+                    bodyFont: { size: 11, family: 'JetBrains Mono' },
+                    padding: 10,
+                    cornerRadius: 8,
+                }
+            }
+        }
+    });
+
+    // Detection Distribution Chart (Doughnut)
+    const detCtx = document.getElementById('detectionChart').getContext('2d');
+    detectionChart = new Chart(detCtx, {
+        type: 'doughnut',
+        data: {
+            labels: detectionStatusLabels,
+            datasets: [{
+                data: [state.stats.normalCount || 1, state.stats.mildCount || 1, state.stats.stressCount || 1],
+                backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+                borderColor: ['#16a34a', '#d97706', '#dc2626'],
+                borderWidth: 2,
+                hoverBorderWidth: 4,
+                hoverBorderColor: ['#ffffff', '#ffffff', '#ffffff'],
+            }]
+        },
+        options: {
+            ...chartDefaults,
+            animation: {
+                duration: 500,
+                easing: 'easeOutCubic',
+                animateRotate: true,
+                animateScale: true,
+            },
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    titleColor: '#475569',
+                    bodyColor: '#1e293b',
+                    bodyFont: { size: 11, family: 'JetBrains Mono' },
+                    padding: 10,
+                    cornerRadius: 8,
+                }
+            }
+        }
+    });
+
+    renderDetectionLegend();
+
+    // Severity Chart (Bar)
+    const sevCtx = document.getElementById('severityChart').getContext('2d');
+    const severityData = getSeverityData();
+    severityChart = new Chart(sevCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Critical', 'High', 'Moderate', 'Low'],
+            datasets: [{
+                label: 'Detections',
+                data: severityData,
+                backgroundColor: [
+                    'rgba(239, 68, 68, 0.7)',
+                    'rgba(249, 115, 22, 0.7)',
+                    'rgba(234, 179, 8, 0.7)',
+                    'rgba(34, 197, 94, 0.7)',
+                ],
+                borderColor: [
+                    '#ef4444',
+                    '#f97316',
+                    '#eab308',
+                    '#22c55e',
+                ],
+                borderWidth: 1,
+                borderRadius: 6,
+                barPercentage: 0.6,
+            }]
+        },
+        options: {
+            ...chartDefaults,
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#2c3847',
+                        font: { size: 13, family: 'Syne, system-ui, sans-serif' },
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(226, 232, 240, 0.8)',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#475569',
+                        font: { size: 10, family: 'JetBrains Mono' },
+                        stepSize: 1,
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    bodyColor: '#1e293b',
+                    bodyFont: { size: 11, family: 'JetBrains Mono' },
+                    padding: 8,
+                    bodySpacing: 4,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        title: () => '',
+                        label: (context) => {
+                            const label = context.label || '';
+                            const value = context.parsed?.y ?? context.raw;
+                            return `${label}: ${value}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function getSeverityData() {
+    return [
+        state.detections.filter(d => d.severity === 'CRITICAL').length,
+        state.detections.filter(d => d.severity === 'HIGH').length,
+        state.detections.filter(d => d.severity === 'MODERATE').length,
+        state.detections.filter(d => d.severity === 'LOW').length,
+    ];
+}
+
+function updateEnvChart() {
+    if (!envChart) return;
+    envChart.data.labels = state.sensorHistory.labels;
+    envChart.data.datasets[0].data = state.sensorHistory.temp;
+    envChart.data.datasets[1].data = state.sensorHistory.humidity;
+    envChart.data.datasets[2].data = state.sensorHistory.heatIndex;
+    envChart.update('none');
+}
+
+function getDetectionDistributionValues() {
+    const counts = detectionStatusLabels.map(label => {
+        const status = label.toUpperCase();
+        return state.detections.filter(d => d.status === status).length;
+    });
+
+    return counts.map((count, idx) => detectionLegendState[detectionStatusLabels[idx]] ? 0 : count);
+}
+
+function renderDetectionLegend() {
+    const legendDiv = document.getElementById('detectionLegend');
+    if (!legendDiv || !detectionChart) return;
+    const colors = detectionChart.data.datasets[0].backgroundColor;
+
+    legendDiv.innerHTML = detectionStatusLabels.map((label, idx) => `
+        <button type="button" class="ht-detection-legend-item${detectionLegendState[label] ? ' is-hidden' : ''}" data-detection-status="${label}">
+            <span class="ht-detection-legend-swatch" style="background:${colors[idx]};"></span>
+            <span>${label}</span>
+        </button>
+    `).join('');
+
+    legendDiv.querySelectorAll('[data-detection-status]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const status = btn.getAttribute('data-detection-status');
+            detectionLegendState[status] = !detectionLegendState[status];
+            renderDetectionLegend();
+            updateDetectionChart();
+        });
+    });
+}
+
+function updateDetectionChart() {
+    if (!detectionChart) return;
+    detectionChart.data.datasets[0].data = getDetectionDistributionValues();
+    detectionChart.update();
+    renderDetectionLegend();
+}
+
+function updateSeverityChart() {
+    if (!severityChart) return;
+    severityChart.data.datasets[0].data = getSeverityData();
+    severityChart.update('none');
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+function setupEventListeners() {
+    // Alert button
+    document.getElementById('alertBtn').addEventListener('click', () => {
+        const panel = document.getElementById('alertPanel');
+        const settingsPanel = document.getElementById('settingsPanel');
+        panel.classList.toggle('u-hidden');
+        if (!panel.classList.contains('u-hidden')) {
+            settingsPanel.classList.add('u-hidden');
+        }
+    });
+
+    // Settings button
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+        const panel = document.getElementById('settingsPanel');
+        const alertPanel = document.getElementById('alertPanel');
+        panel.classList.toggle('u-hidden');
+        if (!panel.classList.contains('u-hidden')) {
+            alertPanel.classList.add('u-hidden');
+        }
+    });
+
+    // Close panels on outside click
+    document.addEventListener('click', (e) => {
+        const alertPanel = document.getElementById('alertPanel');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const alertBtn = document.getElementById('alertBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (!alertPanel || !settingsPanel || !alertBtn || !settingsBtn) return;
+        if (!alertPanel.contains(e.target) && !alertBtn.contains(e.target)) {
+            alertPanel.classList.add('u-hidden');
+        }
+        if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+            settingsPanel.classList.add('u-hidden');
+        }
+    });
+
+    // Clear alerts
+    document.getElementById('clearAlerts').addEventListener('click', () => {
+        state.alerts = [];
+        state.alertCount = 0;
+        document.getElementById('alertBadge').classList.add('u-hidden');
+        document.getElementById('alertList').innerHTML = '<p class="ht-alert-panel__empty">No alerts yet</p>';
+    });
+
+    // Close toast
+    document.getElementById('closeToast').addEventListener('click', () => {
+        const toast = document.getElementById('alertToast');
+        toast.classList.remove('is-visible');
+    });
+
+    // Click toast to open recommendation details for that alert
+    document.getElementById('alertToast').addEventListener('click', (e) => {
+        if (e.target.closest('#closeToast')) return;
+        const detection = state.lastToastDetection;
+        if (!detection) return;
+        const currentTemp = state.sensorHistory.temp[state.sensorHistory.temp.length - 1] || 34;
+        openRecommendationModal(buildRecommendationFromDetection(detection), currentTemp);
+    });
+
+    // Recommendation modal controls
+    document.getElementById('closeRecommendationModal').addEventListener('click', closeRecommendationModal);
+    document.getElementById('recommendationModalBackdrop').addEventListener('click', closeRecommendationModal);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeRecommendationModal();
+        }
+    });
+
+    // Log filter
+    document.getElementById('logFilter').addEventListener('change', () => {
+        state.currentPage = 1;
+        renderDetectionLogs();
+    });
+
+    document.getElementById('logDateRange').addEventListener('change', () => {
+        state.currentPage = 1;
+        toggleCustomLogRangeInputs();
+        renderDetectionLogs();
+    });
+
+    document.getElementById('logCustomStart').addEventListener('change', () => {
+        state.currentPage = 1;
+        renderDetectionLogs();
+    });
+
+    document.getElementById('logCustomEnd').addEventListener('change', () => {
+        state.currentPage = 1;
+        renderDetectionLogs();
+    });
+
+    // Pagination
+    document.getElementById('prevPage').addEventListener('click', () => {
+        if (state.currentPage > 1) {
+            state.currentPage--;
+            renderDetectionLogs();
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        state.currentPage++;
+        renderDetectionLogs();
+    });
+
+    // Export logs
+    document.getElementById('exportLogs').addEventListener('click', () => {
+        const csvContent = [
+            ['Timestamp', 'Status', 'Body Temp (°C)', 'Confidence', 'Duration', 'Severity'],
+            ...state.detections.map(d => [
+                d.timestamp.toISOString(),
+                d.isHeatStress ? 'HEAT STRESS' : 'NORMAL',
+                d.bodyTemp,
+                (d.confidence * 100).toFixed(1) + '%',
+                d.duration,
+                d.severity
+            ])
+        ].map(row => row.join(',')).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `heattrack_log_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Fullscreen camera expansion
+    const normalCameraContainer = document.getElementById('normalCameraContainer');
+    const thermalCameraContainer = document.getElementById('thermalCameraContainer');
+    if (normalCameraContainer) {
+        normalCameraContainer.addEventListener('click', () => {
+            if (!state.cameraActive) return;
+            toggleFullscreen(normalCameraContainer);
+        });
+        syncCameraZoomCursor(normalCameraContainer);
+        initWheelZoom(normalCameraContainer);
+    }
+    if (thermalCameraContainer) {
+        thermalCameraContainer.addEventListener('click', () => {
+            if (!state.cameraActive) return;
+            toggleFullscreen(thermalCameraContainer);
+        });
+        syncCameraZoomCursor(thermalCameraContainer);
+        initWheelZoom(thermalCameraContainer);
+    }
+    document.addEventListener('fullscreenchange', () => {
+        syncCameraZoomCursor(normalCameraContainer);
+        syncCameraZoomCursor(thermalCameraContainer);
+    });
+
+    // System toggles
+    document.getElementById('cameraToggle').addEventListener('change', (e) => {
+        state.cameraActive = e.target.checked;
+        if (!state.cameraActive) {
+            state.aiActive = false;
+            state.alertsEnabled = false;
+        }
+        updateSystemToggleStates();
+        drawAnnotations();
+    });
+
+    document.getElementById('aiToggle').addEventListener('change', (e) => {
+        state.aiActive = e.target.checked;
+        if (!state.aiActive) {
+            state.alertsEnabled = false;
+        }
+        updateSystemToggleStates();
+        drawAnnotations();
+    });
+
+    document.getElementById('alertToggle').addEventListener('change', (e) => {
+        state.alertsEnabled = e.target.checked;
+        if (!state.alertsEnabled) {
+            document.getElementById('alertToast')?.classList.remove('is-visible');
+        }
+    });
+
+    updateSystemToggleStates();
+
+    // Navigation links: ensure clicking a nav control always activates the view
+    document.querySelectorAll('[data-nav]').forEach((navEl) => {
+        navEl.addEventListener('click', (e) => {
+            // Prevent default so we can control behavior consistently
+            e.preventDefault();
+            const target = navEl.getAttribute('data-nav');
+            if (!target) return;
+
+            // Show the view and scroll to top even if already on the same route
+            showView(target);
+
+            // Update the URL hash if it's different; avoid redundant hashchange
+            const desiredHash = `#${target}`;
+            if ((location.hash || '').toLowerCase() !== desiredHash.toLowerCase()) {
+                location.hash = desiredHash;
+            } else {
+                // Force a smooth scroll to top for same-page clicks
+                try {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } catch (_) {
+                    window.scrollTo(0, 0);
+                }
+            }
+        });
+    });
+}
