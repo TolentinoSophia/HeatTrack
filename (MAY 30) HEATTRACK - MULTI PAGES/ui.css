@@ -5419,9 +5419,8 @@ html[data-boot-route="insights"] #view-analytics {
 /* Make detection log empty message more readable on small screens
    Match the recommendations footnote sizing used elsewhere (≈15px, comfortable line-height) */
 @media (max-width: 640px) {
-    .ht-log-panel .ht-footnote,
-    .ht-log-panel td.ht-footnote {
-        font-size: 15px;
-        line-height: 1.6;
+    .ht-log-panel table td.ht-footnote {
+        font-size: 15px !important;
+        line-height: 1.6 !important;
     }
 }
