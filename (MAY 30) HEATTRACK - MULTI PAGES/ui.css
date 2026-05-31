@@ -483,11 +483,13 @@ img { max-width: 100%; height: auto; display: block; }
 .ht-iconbtn[data-tooltip]::before {
     content: none;
 }
+@media (hover: hover) and (pointer: fine) {
 .ht-iconbtn[data-tooltip]:hover::after,
 .ht-iconbtn[data-tooltip]:focus-visible::after {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) scale(1);
+}
 }
 
 .ht-iconbtn.is-active[data-tooltip]::after {
@@ -517,16 +519,40 @@ img { max-width: 100%; height: auto; display: block; }
     transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
     z-index: 9999;
 }
-.ht-nav-menu-btn[data-tooltip]:hover::after,
-.ht-nav-menu-btn[data-tooltip]:focus-visible::after {
+@media (hover: hover) and (pointer: fine) {
+.ht-nav-menu-btn[data-tooltip]:not(.is-active):hover::after,
+.ht-nav-menu-btn[data-tooltip]:not(.is-active):focus-visible::after {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) scale(1);
+}
 }
 .ht-nav-menu-btn.is-active[data-tooltip]::after {
     opacity: 0 !important;
     visibility: hidden !important;
     transform: translateX(-50%) scale(0.92) !important;
+}
+
+/* Hide tooltips on small screens (mobile) */
+@media (max-width: 1023px) and (hover: none) and (pointer: coarse) {
+    /* Hide tooltips for hamburger, alerts, and settings buttons ONLY on true mobile devices */
+    #navMenuToggle[data-tooltip]::after,
+    #alertBtn[data-tooltip]::after,
+    #settingsBtn[data-tooltip]::after {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        display: none !important;
+        pointer-events: none !important;
+    }
+}
+
+/* Disable tooltips when JS requests hover suppression (hybrid devices) */
+.disable-hover .ht-iconbtn[data-tooltip]::after,
+.disable-hover .ht-nav-menu-btn[data-tooltip]::after {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateX(-50%) scale(0.92) !important;
+    pointer-events: none !important;
 }
 
 /* ---- Mobile Navigation Menu ------------------------------------------------- */
