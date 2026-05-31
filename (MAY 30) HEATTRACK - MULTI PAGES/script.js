@@ -939,7 +939,54 @@ function updateSensorReadings(temp, humidity) {
             humidTrendText.textContent = humidTrend === null ? '--' : `${humidTrend >= 0 ? '+' : ''}${humidTrend.toFixed(1)}`;
         }
     }
+    // Update the DHT22 ACTIVE badge visibility after sensor refresh
+    updateDHTBadge();
 }
+
+    // Show or hide the DHT22 "ACTIVE" badge based on whether sensor readings exist.
+    function updateDHTBadge() {
+        try {
+            const tempEl = document.getElementById('tempValue');
+            const panel = tempEl ? tempEl.closest('.ht-panel') : null;
+            const badge = panel ? panel.querySelector('.ht-rec-indicator') : null;
+            if (!badge) return;
+
+            const hasTemp = state.sensorHistory.temp.length > 0 && typeof state.sensorHistory.temp[state.sensorHistory.temp.length - 1] === 'number';
+            const hasHumid = state.sensorHistory.humidity.length > 0 && typeof state.sensorHistory.humidity[state.sensorHistory.humidity.length - 1] === 'number';
+            const sensorPresent = hasTemp || hasHumid;
+
+            // Always show the indicator, but toggle between ACTIVE and INACTIVE states
+            const dot = badge.querySelector('.ht-live-dot');
+            const label = badge.querySelector('.ht-mono-label');
+
+            // Ensure badge is visible
+            badge.style.display = '';
+
+            if (sensorPresent) {
+                if (dot) {
+                    dot.classList.remove('ht-live-dot--inactive');
+                    dot.classList.add('ht-live-dot--green');
+                }
+                if (label) {
+                    label.classList.remove('ht-mono-label--inactive');
+                    label.classList.add('ht-mono-label--green');
+                    label.textContent = 'ACTIVE';
+                }
+            } else {
+                if (dot) {
+                    dot.classList.remove('ht-live-dot--green', 'ht-live-dot--thermal');
+                    dot.classList.add('ht-live-dot--inactive');
+                }
+                if (label) {
+                    label.classList.remove('ht-mono-label--green');
+                    label.classList.add('ht-mono-label--inactive');
+                    label.textContent = 'INACTIVE';
+                }
+            }
+        } catch (e) {
+            // Fail silently; badge is non-critical.
+        }
+    }
 
 // ============================================
 // DETECTION SIMULATION
@@ -1066,6 +1113,14 @@ function renderDetectionLogs() {
             const flash = d.status === 'HEAT STRESS' ? ' ht-log-row--flash' : '';
             const tempClass = d.bodyTemp > 42 ? 'ht-log-temp--hi' : d.bodyTemp > 41 ? 'ht-log-temp--mid' : 'ht-log-temp--ok';
 
+            // compute duck count for this timestamp + status within the currently filtered set
+            const tsKey = (d.timestamp instanceof Date ? d.timestamp.getTime() : new Date(d.timestamp).getTime());
+            const countAtTs = filtered.filter(x => {
+                const xTs = (x.timestamp instanceof Date ? x.timestamp.getTime() : new Date(x.timestamp).getTime());
+                return xTs === tsKey && x.status === d.status;
+            }).length;
+            const duckLabel = `${countAtTs} duck${countAtTs !== 1 ? 's' : ''}`;
+
             return `
                 <tr class="ht-log-row-clickable${flash}" data-detection-id="${d.id}">
                     <td class="ht-log-cell--mono">${formatTimestamp(d.timestamp)}</td>
@@ -1076,7 +1131,7 @@ function renderDetectionLogs() {
                         </div>
                     </td>
                     <td class="ht-log-cell--mono ${tempClass}">${d.bodyTemp}°C</td>
-                    <td class="ht-log-cell--mono ht-log-dur">${d.duration}</td>
+                    <td class="ht-log-cell--mono ht-log-dur">${duckLabel}</td>
                     <td><span class="${sevPill}">${d.severity}</span></td>
                 </tr>
             `;
