@@ -587,6 +587,23 @@ img { max-width: 100%; height: auto; display: block; }
     color: var(--ht-surface-200);
 }
 
+/* On true mobile devices: show hover effect only when button is tapped (is-active state) */
+@media (max-width: 1023px) and (hover: none) and (pointer: coarse) {
+    .ht-nav-menu-btn:hover,
+    #settingsBtn:hover,
+    #alertBtn:hover {
+        background: transparent;
+        color: var(--ht-surface-300);
+    }
+    
+    .ht-nav-menu-btn.is-active,
+    #settingsBtn.is-active,
+    #alertBtn.is-active {
+        background: rgba(15, 23, 42, 0.06);
+        color: var(--ht-surface-200);
+    }
+}
+
 @media (max-width: 1023px) {
     .ht-nav-menu-btn {
         display: inline-flex;
