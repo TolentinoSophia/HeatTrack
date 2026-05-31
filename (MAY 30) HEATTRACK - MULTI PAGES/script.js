@@ -7,6 +7,20 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
 });
 
+// Temporarily suppress tooltip/hover behavior (for touch interactions)
+function suppressHoverTemporarily() {
+    try {
+        document.documentElement.classList.add('disable-hover');
+        if (window._disableHoverTimer) clearTimeout(window._disableHoverTimer);
+        window._disableHoverTimer = setTimeout(() => {
+            document.documentElement.classList.remove('disable-hover');
+            window._disableHoverTimer = null;
+        }, 600);
+    } catch (e) {
+        // noop
+    }
+}
+
 function initFaqAccordion() {
     document.querySelectorAll('.ht-faq__item').forEach((item) => {
         item.addEventListener('toggle', () => {
@@ -28,14 +42,43 @@ function initMobileNavMenu() {
     menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const isOpen = nav.classList.toggle('is-open');
+        menuBtn.classList.toggle('is-active', isOpen);
         menuBtn.setAttribute('aria-expanded', isOpen);
+        // Close Settings and Alerts panels when hamburger menu opens
+        if (isOpen) {
+            const settingsPanel = document.getElementById('settingsPanel');
+            const alertPanel = document.getElementById('alertPanel');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const alertBtn = document.getElementById('alertBtn');
+            if (settingsPanel) {
+                settingsPanel.classList.add('u-hidden');
+                settingsBtn?.classList.remove('is-active');
+            }
+            if (alertPanel) {
+                alertPanel.classList.add('u-hidden');
+                alertBtn?.classList.remove('is-active');
+            }
+        }
     });
+
+    // Suppress hover/tooltips briefly on touch interactions for hamburger
+    menuBtn.addEventListener('touchstart', suppressHoverTemporarily, { passive: true });
 
     // Close menu when a nav link is clicked
     nav.querySelectorAll('.ht-nav__link').forEach((link) => {
         link.addEventListener('click', () => {
             nav.classList.remove('is-open');
+            menuBtn.classList.remove('is-active');
             menuBtn.setAttribute('aria-expanded', 'false');
+            // Close Settings and Alerts panels when closing hamburger menu
+            const settingsPanel = document.getElementById('settingsPanel');
+            const alertPanel = document.getElementById('alertPanel');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const alertBtn = document.getElementById('alertBtn');
+            settingsPanel?.classList.add('u-hidden');
+            settingsBtn?.classList.remove('is-active');
+            alertPanel?.classList.add('u-hidden');
+            alertBtn?.classList.remove('is-active');
         });
     });
 
@@ -43,7 +86,17 @@ function initMobileNavMenu() {
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.ht-topnav')) {
             nav.classList.remove('is-open');
+            menuBtn.classList.remove('is-active');
             menuBtn.setAttribute('aria-expanded', 'false');
+            // Close Settings and Alerts panels when clicking outside
+            const settingsPanel = document.getElementById('settingsPanel');
+            const alertPanel = document.getElementById('alertPanel');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const alertBtn = document.getElementById('alertBtn');
+            settingsPanel?.classList.add('u-hidden');
+            settingsBtn?.classList.remove('is-active');
+            alertPanel?.classList.add('u-hidden');
+            alertBtn?.classList.remove('is-active');
         }
     });
 
@@ -51,7 +104,17 @@ function initMobileNavMenu() {
     window.addEventListener('resize', () => {
         if (window.innerWidth >= 768) {
             nav.classList.remove('is-open');
+            menuBtn.classList.remove('is-active');
             menuBtn.setAttribute('aria-expanded', 'false');
+            // Close Settings and Alerts panels on resize
+            const settingsPanel = document.getElementById('settingsPanel');
+            const alertPanel = document.getElementById('alertPanel');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const alertBtn = document.getElementById('alertBtn');
+            settingsPanel?.classList.add('u-hidden');
+            settingsBtn?.classList.remove('is-active');
+            alertPanel?.classList.add('u-hidden');
+            alertBtn?.classList.remove('is-active');
         }
     });
 }
@@ -1917,15 +1980,25 @@ function setupEventListeners() {
     const alertBtn = document.getElementById('alertBtn');
     const settingsBtn = document.getElementById('settingsBtn');
 
+    // Suppress hover/tooltips on touch for alert/settings
+    alertBtn?.addEventListener('touchstart', suppressHoverTemporarily, { passive: true });
+    settingsBtn?.addEventListener('touchstart', suppressHoverTemporarily, { passive: true });
+
     // Alert button
     alertBtn?.addEventListener('click', () => {
         const panel = document.getElementById('alertPanel');
         const settingsPanel = document.getElementById('settingsPanel');
+        const menuBtn = document.getElementById('navMenuToggle');
+        const nav = document.getElementById('mobileNav');
         panel.classList.toggle('u-hidden');
         alertBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
         if (!panel.classList.contains('u-hidden')) {
             settingsPanel.classList.add('u-hidden');
             settingsBtn?.classList.remove('is-active');
+            // Close hamburger menu when alert panel opens
+            nav?.classList.remove('is-open');
+            menuBtn?.classList.remove('is-active');
+            menuBtn?.setAttribute('aria-expanded', 'false');
         }
     });
 
@@ -1933,11 +2006,17 @@ function setupEventListeners() {
     settingsBtn?.addEventListener('click', () => {
         const panel = document.getElementById('settingsPanel');
         const alertPanel = document.getElementById('alertPanel');
+        const menuBtn = document.getElementById('navMenuToggle');
+        const nav = document.getElementById('mobileNav');
         panel.classList.toggle('u-hidden');
         settingsBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
         if (!panel.classList.contains('u-hidden')) {
             alertPanel.classList.add('u-hidden');
             alertBtn?.classList.remove('is-active');
+            // Close hamburger menu when settings panel opens
+            nav?.classList.remove('is-open');
+            menuBtn?.classList.remove('is-active');
+            menuBtn?.setAttribute('aria-expanded', 'false');
         }
     });
 
