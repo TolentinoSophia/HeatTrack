@@ -1301,7 +1301,7 @@ function renderRecommendations() {
                 No recommendations yet. Live sensor readings and detections are required to generate AI recommendations. This panel will update automatically once new data arrives.
             </div>
         `;
-        document.getElementById('recBadge').textContent = `0 Active`;
+        // badge removed: do not update recBadge
         lucide.createIcons();
         return;
     }
@@ -1318,10 +1318,12 @@ function renderRecommendations() {
     }
 
     envRecs.forEach(rec => {
+        const now = Date.now();
         activeRecs.push({
             ...rec,
             id: `env-${rec.action}`,
-            timestamp: formatTimestamp(new Date()),
+            timestamp: formatTimestamp(new Date(now)),
+            timestampMs: now,
             severity: tempAvailable
                 ? currentTemp > 40 ? 'CRITICAL' : currentTemp > 37 ? 'HIGH' : currentTemp > 34 ? 'MODERATE' : 'LOW'
                 : 'LOW',
@@ -1337,6 +1339,7 @@ function renderRecommendations() {
             ...recs[0],
             id: `duck-${d.id}`,
             timestamp: formatTimestamp(d.timestamp),
+            timestampMs: d.timestamp instanceof Date ? d.timestamp.getTime() : Date.now(),
             severity: d.severity,
             bodyTemp: d.bodyTemp,
             confidence: Math.round(d.confidence * 100),
@@ -1344,7 +1347,10 @@ function renderRecommendations() {
         });
     });
 
-    const displayRecs = activeRecs.slice(0, 8);
+    // Sort all active recommendations so latest items appear first
+    activeRecs.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+
+    const displayRecs = activeRecs; // show all available recommendations
 
     container.innerHTML = displayRecs.map(r => {
         const cardClass = REC_SEVERITY_CLASS[r.severity] || REC_SEVERITY_CLASS.LOW;
@@ -1383,7 +1389,7 @@ function renderRecommendations() {
         });
     });
 
-    document.getElementById('recBadge').textContent = `${displayRecs.length} Active`;
+    // badge removed: no active count displayed
     lucide.createIcons();
 }
 
