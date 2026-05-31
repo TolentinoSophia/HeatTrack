@@ -244,7 +244,7 @@ img { max-width: 100%; height: auto; display: block; }
     top: 0;
     left: 0;
     right: 0;
-    z-index: 50;
+    z-index: 60;
     background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(16px) saturate(1.4);
     -webkit-backdrop-filter: blur(16px) saturate(1.4);
@@ -470,7 +470,6 @@ img { max-width: 100%; height: auto; display: block; }
     background: rgba(15, 23, 42, 0.96);
     color: #f8fafc;
     font-size: 0.8125rem;
-    font-weight: 600;
     letter-spacing: 0.01em;
     padding: 0.45rem 0.75rem;
     border-radius: 0.75rem;
@@ -479,7 +478,7 @@ img { max-width: 100%; height: auto; display: block; }
     visibility: hidden;
     pointer-events: none;
     transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
-    z-index: 10;
+    z-index: 9999;
 }
 .ht-iconbtn[data-tooltip]::before {
     content: none;
@@ -492,6 +491,39 @@ img { max-width: 100%; height: auto; display: block; }
 }
 
 .ht-iconbtn.is-active[data-tooltip]::after {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateX(-50%) scale(0.92) !important;
+}
+
+/* Tooltip support for the mobile hamburger (nav) button */
+.ht-nav-menu-btn[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 0.6rem);
+    transform: translateX(-50%) scale(0.92);
+    white-space: nowrap;
+    background: rgba(15, 23, 42, 0.96);
+    color: #f8fafc;
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.24);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+    z-index: 9999;
+}
+.ht-nav-menu-btn[data-tooltip]:hover::after,
+.ht-nav-menu-btn[data-tooltip]:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) scale(1);
+}
+.ht-nav-menu-btn.is-active[data-tooltip]::after {
     opacity: 0 !important;
     visibility: hidden !important;
     transform: translateX(-50%) scale(0.92) !important;
@@ -522,6 +554,12 @@ img { max-width: 100%; height: auto; display: block; }
     box-shadow: var(--ht-focus-ring);
 }
 .ht-nav-menu-btn svg { width: 1.25rem; height: 1.25rem; }
+
+/* Make topbar icon buttons (settings, alerts) behave like the hamburger on all screens */
+.ht-iconbtn:hover {
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--ht-surface-200);
+}
 
 @media (max-width: 1023px) {
     .ht-nav-menu-btn {
@@ -993,7 +1031,7 @@ img { max-width: 100%; height: auto; display: block; }
 .page-section-title {
     margin: 0;
     font-family: var(--ht-font-display);
-    font-size: clamp(1.375rem, 2vw + 0.5rem, var(--ht-text-2xl));
+    font-size: clamp(1.25rem, 2vw + 0.4rem, var(--ht-text-xl));
     font-weight: 700;
     letter-spacing: -0.03em;
     color: var(--ht-surface-50);
@@ -1001,7 +1039,7 @@ img { max-width: 100%; height: auto; display: block; }
 }
 
 .page-section-subtitle {
-    margin: 0.5rem 0 0;
+    margin: 0.2rem 0 0;
     font-size: var(--ht-text-base);
     line-height: var(--ht-leading-normal);
     color: var(--ht-surface-400);
@@ -1320,6 +1358,10 @@ img { max-width: 100%; height: auto; display: block; }
     color: var(--ht-surface-400);
     max-width: 40rem;
     line-height: var(--ht-leading-relaxed);
+    text-align: center;
+}
+
+.ht-band .ht-section-sub {
     text-align: justify;
 }
 
@@ -1759,7 +1801,7 @@ img { max-width: 100%; height: auto; display: block; }
     margin: 0;
     font-size: 0.9rem;
     color: var(--ht-surface-400);
-    grid-column: 1 / -1;
+    grid-column: 2 / -1;
 }
 
 
@@ -1816,6 +1858,13 @@ img { max-width: 100%; height: auto; display: block; }
 .ht-live-dot--green { background: #4ade80; animation: ht-pulse-dot 2s ease-in-out infinite; }
 .ht-live-dot--thermal { background: var(--ht-thermal-400); animation: ht-pulse-dot 2s ease-in-out infinite; }
 
+/* Inactive / disconnected DHT22 indicator: neutral gray, no animation/glow */
+.ht-live-dot--inactive {
+    background: #9ca3af;
+    animation: none !important;
+    box-shadow: none !important;
+}
+
 .ht-rec-indicator {
     display: flex;
     align-items: center;
@@ -1828,6 +1877,7 @@ img { max-width: 100%; height: auto; display: block; }
     color: var(--ht-surface-400);
 }
 .ht-mono-label--green { color: #4ade80; }
+.ht-mono-label--inactive { color: #6b7280; }
 
 .ht-rec-dot {
     width: 1.5rem;
@@ -2294,6 +2344,38 @@ img { max-width: 100%; height: auto; display: block; }
 .ht-legend__sw--temp { background: var(--ht-thermal-500); }
 .ht-legend__sw--humid { background: #60a5fa; }
 .ht-legend__sw--hi { background: #f87171; }
+
+/* Mobile: make mobile nav visually match desktop */
+@media (max-width: 1023px) {
+  .ht-nav {
+    background: var(--ht-surface-850);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    box-shadow: var(--ht-shadow-sm);
+  }
+
+  .ht-nav__link {
+    color: #6b7280; /* gray for inactive items */
+    background: transparent;
+  }
+
+  .ht-nav__link:not(.ht-nav__link--active):hover {
+    background: #ffffff; /* white hover background */
+    color: #111827;      /* black text on hover */
+    box-shadow: var(--ht-shadow-xs);
+  }
+
+  .ht-nav__link--active {
+    color: #ffffff; /* white text for active */
+    font-weight: 600;
+    background: linear-gradient(145deg, #fb923c, var(--ht-thermal-600)); /* orange active background */
+    box-shadow: var(--ht-shadow-sm);
+  }
+
+  .ht-nav.is-open {
+    background: var(--ht-surface-850);
+    border-color: rgba(15, 23, 42, 0.06);
+  }
+}
 
 .ht-chart-box__canvas { height: 12rem; }
 
@@ -2803,6 +2885,10 @@ img { max-width: 100%; height: auto; display: block; }
     color: var(--ht-surface-400);
     line-height: 1.6;
     text-align: justify;
+}
+
+#recommendationsDisclaimer p {
+    margin-left: calc(1.25rem + 0.5rem);
 }
 
 /* ---- Switches ---------------------------------------------------------------- */
