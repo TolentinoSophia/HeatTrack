@@ -79,6 +79,8 @@ function initMobileNavMenu() {
             settingsBtn?.classList.remove('is-active');
             alertPanel?.classList.add('u-hidden');
             alertBtn?.classList.remove('is-active');
+            // Remove tap-induced hover effect after interaction
+            suppressHoverTemporarily();
         });
     });
 
@@ -97,6 +99,8 @@ function initMobileNavMenu() {
             settingsBtn?.classList.remove('is-active');
             alertPanel?.classList.add('u-hidden');
             alertBtn?.classList.remove('is-active');
+            // Remove tap-induced hover effect after interaction
+            suppressHoverTemporarily();
         }
     });
 
@@ -115,6 +119,8 @@ function initMobileNavMenu() {
             settingsBtn?.classList.remove('is-active');
             alertPanel?.classList.add('u-hidden');
             alertBtn?.classList.remove('is-active');
+            // Remove tap-induced hover effect after interaction
+            suppressHoverTemporarily();
         }
     });
 }
@@ -1990,6 +1996,7 @@ function setupEventListeners() {
         const settingsPanel = document.getElementById('settingsPanel');
         const menuBtn = document.getElementById('navMenuToggle');
         const nav = document.getElementById('mobileNav');
+        const wasHidden = panel.classList.contains('u-hidden');
         panel.classList.toggle('u-hidden');
         alertBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
         if (!panel.classList.contains('u-hidden')) {
@@ -1999,6 +2006,9 @@ function setupEventListeners() {
             nav?.classList.remove('is-open');
             menuBtn?.classList.remove('is-active');
             menuBtn?.setAttribute('aria-expanded', 'false');
+        } else if (wasHidden) {
+            // Remove tap-induced hover effect when panel closes
+            suppressHoverTemporarily();
         }
     });
 
@@ -2008,6 +2018,7 @@ function setupEventListeners() {
         const alertPanel = document.getElementById('alertPanel');
         const menuBtn = document.getElementById('navMenuToggle');
         const nav = document.getElementById('mobileNav');
+        const wasHidden = panel.classList.contains('u-hidden');
         panel.classList.toggle('u-hidden');
         settingsBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
         if (!panel.classList.contains('u-hidden')) {
@@ -2017,10 +2028,25 @@ function setupEventListeners() {
             nav?.classList.remove('is-open');
             menuBtn?.classList.remove('is-active');
             menuBtn?.setAttribute('aria-expanded', 'false');
+        } else if (wasHidden) {
+            // Remove tap-induced hover effect when panel closes
+            suppressHoverTemporarily();
         }
     });
 
-    // Close panels on outside click
+    // Prevent clicks inside panels from bubbling and triggering outside-click close
+    const alertPanel = document.getElementById('alertPanel');
+    const settingsPanel = document.getElementById('settingsPanel');
+    
+    alertPanel?.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    
+    settingsPanel?.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // Close panels on outside click (but not when clicking inside the panels)
     document.addEventListener('click', (e) => {
         const alertPanel = document.getElementById('alertPanel');
         const settingsPanel = document.getElementById('settingsPanel');
@@ -2028,10 +2054,14 @@ function setupEventListeners() {
         if (!alertPanel.contains(e.target) && !alertBtn.contains(e.target)) {
             alertPanel.classList.add('u-hidden');
             alertBtn.classList.remove('is-active');
+            // Remove tap-induced hover effect after panel closes
+            suppressHoverTemporarily();
         }
         if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
             settingsPanel.classList.add('u-hidden');
             settingsBtn.classList.remove('is-active');
+            // Remove tap-induced hover effect after panel closes
+            suppressHoverTemporarily();
         }
     });
 
