@@ -50,14 +50,10 @@ function initMobileNavMenu() {
             const alertPanel = document.getElementById('alertPanel');
             const settingsBtn = document.getElementById('settingsBtn');
             const alertBtn = document.getElementById('alertBtn');
-            if (settingsPanel) {
-                settingsPanel.classList.add('u-hidden');
-                settingsBtn?.classList.remove('is-active');
-            }
-            if (alertPanel) {
-                alertPanel.classList.add('u-hidden');
-                alertBtn?.classList.remove('is-active');
-            }
+            animatePanelClose(settingsPanel);
+            settingsBtn?.classList.remove('is-active');
+            animatePanelClose(alertPanel);
+            alertBtn?.classList.remove('is-active');
         }
     });
 
@@ -75,9 +71,9 @@ function initMobileNavMenu() {
             const alertPanel = document.getElementById('alertPanel');
             const settingsBtn = document.getElementById('settingsBtn');
             const alertBtn = document.getElementById('alertBtn');
-            settingsPanel?.classList.add('u-hidden');
+            animatePanelClose(settingsPanel);
             settingsBtn?.classList.remove('is-active');
-            alertPanel?.classList.add('u-hidden');
+            animatePanelClose(alertPanel);
             alertBtn?.classList.remove('is-active');
             // Remove tap-induced hover effect after interaction
             suppressHoverTemporarily();
@@ -95,9 +91,9 @@ function initMobileNavMenu() {
             const alertPanel = document.getElementById('alertPanel');
             const settingsBtn = document.getElementById('settingsBtn');
             const alertBtn = document.getElementById('alertBtn');
-            settingsPanel?.classList.add('u-hidden');
+            animatePanelClose(settingsPanel);
             settingsBtn?.classList.remove('is-active');
-            alertPanel?.classList.add('u-hidden');
+            animatePanelClose(alertPanel);
             alertBtn?.classList.remove('is-active');
             // Remove tap-induced hover effect after interaction
             suppressHoverTemporarily();
@@ -115,14 +111,43 @@ function initMobileNavMenu() {
             const alertPanel = document.getElementById('alertPanel');
             const settingsBtn = document.getElementById('settingsBtn');
             const alertBtn = document.getElementById('alertBtn');
-            settingsPanel?.classList.add('u-hidden');
+            animatePanelClose(settingsPanel);
             settingsBtn?.classList.remove('is-active');
-            alertPanel?.classList.add('u-hidden');
+            animatePanelClose(alertPanel);
             alertBtn?.classList.remove('is-active');
             // Remove tap-induced hover effect after interaction
             suppressHoverTemporarily();
         }
     });
+}
+
+function animatePanelOpen(panel) {
+    if (!panel) return;
+    if (panel.__pendingCloseListener) {
+        panel.removeEventListener('transitionend', panel.__pendingCloseListener);
+        panel.__pendingCloseListener = null;
+    }
+    panel.classList.remove('u-hidden');
+    void panel.offsetWidth;
+    panel.classList.add('is-open');
+}
+
+function animatePanelClose(panel) {
+    if (!panel) return;
+    panel.classList.remove('is-open');
+    if (panel.__pendingCloseListener) {
+        panel.removeEventListener('transitionend', panel.__pendingCloseListener);
+        panel.__pendingCloseListener = null;
+    }
+    const finishClose = (event) => {
+        if (event.propertyName === 'opacity') {
+            panel.classList.add('u-hidden');
+            panel.removeEventListener('transitionend', finishClose);
+            panel.__pendingCloseListener = null;
+        }
+    };
+    panel.__pendingCloseListener = finishClose;
+    panel.addEventListener('transitionend', finishClose);
 }
 
 
@@ -2000,20 +2025,22 @@ function setupEventListeners() {
     alertBtn?.addEventListener('click', () => {
         const panel = document.getElementById('alertPanel');
         const settingsPanel = document.getElementById('settingsPanel');
+        const settingsBtn = document.getElementById('settingsBtn');
         const menuBtn = document.getElementById('navMenuToggle');
         const nav = document.getElementById('mobileNav');
         const wasHidden = panel.classList.contains('u-hidden');
-        panel.classList.toggle('u-hidden');
-        alertBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
-        if (!panel.classList.contains('u-hidden')) {
-            settingsPanel.classList.add('u-hidden');
+
+        if (wasHidden) {
+            animatePanelOpen(panel);
+            alertBtn.classList.add('is-active');
+            animatePanelClose(settingsPanel);
             settingsBtn?.classList.remove('is-active');
-            // Close hamburger menu when alert panel opens
             nav?.classList.remove('is-open');
             menuBtn?.classList.remove('is-active');
             menuBtn?.setAttribute('aria-expanded', 'false');
-        } else if (wasHidden) {
-            // Remove tap-induced hover effect when panel closes
+        } else {
+            animatePanelClose(panel);
+            alertBtn.classList.remove('is-active');
             suppressHoverTemporarily();
         }
     });
@@ -2025,17 +2052,18 @@ function setupEventListeners() {
         const menuBtn = document.getElementById('navMenuToggle');
         const nav = document.getElementById('mobileNav');
         const wasHidden = panel.classList.contains('u-hidden');
-        panel.classList.toggle('u-hidden');
-        settingsBtn.classList.toggle('is-active', !panel.classList.contains('u-hidden'));
-        if (!panel.classList.contains('u-hidden')) {
-            alertPanel.classList.add('u-hidden');
+
+        if (wasHidden) {
+            animatePanelOpen(panel);
+            settingsBtn.classList.add('is-active');
+            animatePanelClose(alertPanel);
             alertBtn?.classList.remove('is-active');
-            // Close hamburger menu when settings panel opens
             nav?.classList.remove('is-open');
             menuBtn?.classList.remove('is-active');
             menuBtn?.setAttribute('aria-expanded', 'false');
-        } else if (wasHidden) {
-            // Remove tap-induced hover effect when panel closes
+        } else {
+            animatePanelClose(panel);
+            settingsBtn.classList.remove('is-active');
             suppressHoverTemporarily();
         }
     });
@@ -2058,13 +2086,13 @@ function setupEventListeners() {
         const settingsPanel = document.getElementById('settingsPanel');
         if (!alertPanel || !settingsPanel || !alertBtn || !settingsBtn) return;
         if (!alertPanel.contains(e.target) && !alertBtn.contains(e.target)) {
-            alertPanel.classList.add('u-hidden');
+            animatePanelClose(alertPanel);
             alertBtn.classList.remove('is-active');
             // Remove tap-induced hover effect after panel closes
             suppressHoverTemporarily();
         }
         if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
-            settingsPanel.classList.add('u-hidden');
+            animatePanelClose(settingsPanel);
             settingsBtn.classList.remove('is-active');
             // Remove tap-induced hover effect after panel closes
             suppressHoverTemporarily();
