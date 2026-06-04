@@ -2303,6 +2303,10 @@ function setupEventListeners() {
                 const formattedDate = formatDateToDisplay(el.value);
                 el.setAttribute('data-has-value', el.value ? 'true' : 'false');
                 el.setAttribute('data-display-date', formattedDate);
+                const placeholder = el.nextElementSibling;
+                if (placeholder && placeholder.classList.contains('ht-custom-range__placeholder')) {
+                    placeholder.textContent = formattedDate || 'mm/dd/yyyy';
+                }
                 // Remove active state after selection
                 logCustomStartWrapper?.classList.remove('is-active');
                 el.blur();
@@ -2342,6 +2346,10 @@ function setupEventListeners() {
                 const formattedDate = formatDateToDisplay(el.value);
                 el.setAttribute('data-has-value', el.value ? 'true' : 'false');
                 el.setAttribute('data-display-date', formattedDate);
+                const placeholder = el.nextElementSibling;
+                if (placeholder && placeholder.classList.contains('ht-custom-range__placeholder')) {
+                    placeholder.textContent = formattedDate || 'mm/dd/yyyy';
+                }
                 // Remove active state after selection
                 logCustomEndWrapper?.classList.remove('is-active');
                 el.blur();
@@ -2362,8 +2370,15 @@ function setupEventListeners() {
                 e.preventDefault();
                 e.stopPropagation();
                 startPickerTouchTime = Date.now();
+                if (typeof startInput.showPicker === 'function') {
+                    startInput.showPicker();
+                } else {
+                    startInput.focus();
+                }
+                return;
             }
             if (e.type === 'click' && Date.now() - startPickerTouchTime < 500) {
+                startPickerTouchTime = 0;
                 return;
             }
             if (typeof startInput.showPicker === 'function') {
@@ -2387,8 +2402,15 @@ function setupEventListeners() {
                 e.preventDefault();
                 e.stopPropagation();
                 endPickerTouchTime = Date.now();
+                if (typeof endInput.showPicker === 'function') {
+                    endInput.showPicker();
+                } else {
+                    endInput.focus();
+                }
+                return;
             }
             if (e.type === 'click' && Date.now() - endPickerTouchTime < 500) {
+                endPickerTouchTime = 0;
                 return;
             }
             if (typeof endInput.showPicker === 'function') {
