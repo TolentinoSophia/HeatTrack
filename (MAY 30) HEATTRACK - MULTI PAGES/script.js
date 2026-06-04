@@ -618,6 +618,16 @@ function getTodayInputValue() {
     return `${today.getFullYear()}-${month}-${day}`;
 }
 
+function clampDateToToday(input) {
+    if (!input || !input.value) return;
+    const maxValue = getTodayInputValue();
+    if (input.value > maxValue) {
+        input.value = maxValue;
+        input.setAttribute('data-has-value', 'true');
+        updateCustomDateDisplay(input);
+    }
+}
+
 function setCustomRangeMaxDate() {
     const maxValue = getTodayInputValue();
     const startInput = document.getElementById('logCustomStart');
@@ -2261,35 +2271,75 @@ function setupEventListeners() {
     });
 
     // Log filter
-    document.getElementById('logFilter').addEventListener('change', () => {
+    document.getElementById('logFilter').addEventListener('change', (e) => {
         state.currentPage = 1;
         renderDetectionLogs();
+        if (e.target instanceof HTMLElement) e.target.blur();
     });
 
-    document.getElementById('logDateRange').addEventListener('change', () => {
+    document.getElementById('logDateRange').addEventListener('change', (e) => {
         state.currentPage = 1;
         toggleCustomLogRangeInputs();
         renderDetectionLogs();
+        if (e.target instanceof HTMLElement) e.target.blur();
     });
 
     document.getElementById('logCustomStart').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomStart');
         if (el) {
+            clampDateToToday(el);
             el.setAttribute('data-has-value', el.value ? 'true' : 'false');
             updateCustomDateDisplay(el);
         }
         state.currentPage = 1;
         renderDetectionLogs();
+        if (e.target instanceof HTMLElement) e.target.blur();
     });
 
     document.getElementById('logCustomEnd').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomEnd');
         if (el) {
+            clampDateToToday(el);
             el.setAttribute('data-has-value', el.value ? 'true' : 'false');
             updateCustomDateDisplay(el);
         }
         state.currentPage = 1;
         renderDetectionLogs();
+        if (e.target instanceof HTMLElement) e.target.blur();
+    });
+
+    function removeHtSelectHoverState(element) {
+        if (!(element instanceof HTMLElement)) return;
+        element.blur();
+        requestAnimationFrame(() => {
+            if (document.activeElement === element) {
+                element.blur();
+            }
+        });
+    }
+
+    document.querySelectorAll('.ht-select').forEach((control) => {
+        control.addEventListener('change', () => removeHtSelectHoverState(control));
+        control.addEventListener('pointerup', (event) => {
+            if (event.pointerType === 'touch') {
+                setTimeout(() => removeHtSelectHoverState(control), 0);
+            }
+        });
+    });
+
+    document.querySelectorAll('.ht-date-field').forEach((wrapper) => {
+        wrapper.addEventListener('click', (event) => {
+            const input = wrapper.querySelector('input[type="date"]');
+            if (input) {
+                setCustomRangeMaxDate();
+                clampDateToToday(input);
+                input.focus();
+                // If the browser supports showPicker, open the calendar immediately.
+                if (typeof input.showPicker === 'function') {
+                    input.showPicker();
+                }
+            }
+        });
     });
 
     // Pagination
