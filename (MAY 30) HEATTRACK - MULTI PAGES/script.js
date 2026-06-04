@@ -2366,7 +2366,7 @@ function setupEventListeners() {
         let startPickerTouchTime = 0;
         const openStartPicker = (e) => {
             if (!startInput || e.target === startInput) return;
-            if (e.type === 'touchstart') {
+            if (e.type === 'touchend') {
                 e.preventDefault();
                 e.stopPropagation();
                 startPickerTouchTime = Date.now();
@@ -2389,7 +2389,7 @@ function setupEventListeners() {
         };
 
         logCustomStartContainer.addEventListener('click', openStartPicker);
-        logCustomStartContainer.addEventListener('touchstart', openStartPicker, { passive: false });
+        logCustomStartContainer.addEventListener('touchend', openStartPicker, { passive: false });
     }
 
     const logCustomEndContainer = document.getElementById('logCustomEnd')?.parentElement;
@@ -2398,7 +2398,7 @@ function setupEventListeners() {
         let endPickerTouchTime = 0;
         const openEndPicker = (e) => {
             if (!endInput || e.target === endInput) return;
-            if (e.type === 'touchstart') {
+            if (e.type === 'touchend') {
                 e.preventDefault();
                 e.stopPropagation();
                 endPickerTouchTime = Date.now();
@@ -2421,7 +2421,7 @@ function setupEventListeners() {
         };
 
         logCustomEndContainer.addEventListener('click', openEndPicker);
-        logCustomEndContainer.addEventListener('touchstart', openEndPicker, { passive: false });
+        logCustomEndContainer.addEventListener('touchend', openEndPicker, { passive: false });
     }
 
     // Pagination
