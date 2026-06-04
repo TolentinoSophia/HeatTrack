@@ -173,6 +173,10 @@ const state = {
     pageSize: 10,
     alertCount: 0,
     alerts: [],
+    alertsDisplayed: 0,
+    alertsPageSize: 10,
+    recommendationsDisplayed: 0,
+    recommendationsPageSize: 8,
     cameraActive: true,
     aiActive: true,
     alertsEnabled: true,
@@ -258,9 +262,6 @@ function initSystem() {
     intervals.clock = setInterval(updateTime, 1000);
     setCustomRangeMaxDate();
 
-    // Start with no seeded sensor or detection data.
-    // The UI is ready to display real incoming readings and events dynamically.
-
     // Update stats
     updateStats();
     updateSensorReadings();
@@ -275,6 +276,7 @@ function initSystem() {
     renderDetectionLogs();
     renderLiveDetections();
     renderRecommendations();
+    renderAlerts();
     drawAnnotations();
 
     setAppDates();
@@ -624,6 +626,23 @@ function setCustomRangeMaxDate() {
     if (endInput) endInput.max = maxValue;
 }
 
+function formatDateForDisplay(value) {
+    if (!value) return 'MM/DD/YYYY';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'MM/DD/YYYY';
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+}
+
+function updateCustomDateDisplay(input) {
+    if (!input) return;
+    const wrapper = input.closest('.ht-date-field');
+    if (!wrapper) return;
+    wrapper.dataset.label = formatDateForDisplay(input.value);
+}
+
 function getLogDateBounds() {
     const rangeEl = document.getElementById('logDateRange');
     if (!rangeEl) return { start: null, end: null };
@@ -675,6 +694,11 @@ function toggleCustomLogRangeInputs() {
     const customRange = document.getElementById('logCustomRange');
     if (customRange) {
         customRange.classList.toggle('u-hidden', !showCustom);
+    }
+    if (showCustom) {
+        setCustomRangeMaxDate();
+        updateCustomDateDisplay(document.getElementById('logCustomStart'));
+        updateCustomDateDisplay(document.getElementById('logCustomEnd'));
     }
 }
 
@@ -914,6 +938,7 @@ function generateDetection(isHeatStress = false) {
         severity
     };
 }
+
 
 function buildRecommendationFromDetection(detection) {
     const severity = detection?.severity || 'MODERATE';
@@ -1301,7 +1326,6 @@ function renderRecommendations() {
                 No recommendations yet. Live sensor readings and detections are required to generate AI recommendations. This panel will update automatically once new data arrives.
             </div>
         `;
-        // badge removed: do not update recBadge
         lucide.createIcons();
         return;
     }
@@ -1350,9 +1374,15 @@ function renderRecommendations() {
     // Sort all active recommendations so latest items appear first
     activeRecs.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
 
-    const displayRecs = activeRecs; // show all available recommendations
+    // Ensure the latest recommendations are shown first and preserve older items when the user expands the list
+    if (state.recommendationsDisplayed === 0 && activeRecs.length > 0) {
+        state.recommendationsDisplayed = state.recommendationsPageSize;
+    }
+    const toShow = Math.min(state.recommendationsDisplayed, activeRecs.length);
+    const displayRecs = activeRecs.slice(0, toShow);
+    const hasMore = toShow < activeRecs.length;
 
-    container.innerHTML = displayRecs.map(r => {
+    let html = displayRecs.map(r => {
         const cardClass = REC_SEVERITY_CLASS[r.severity] || REC_SEVERITY_CLASS.LOW;
         const category = getRecCategoryLabel(r);
         const tip = getRecTip(r);
@@ -1379,9 +1409,22 @@ function renderRecommendations() {
         `;
     }).join('');
 
+    // Add "Show More" button if there are more recommendations
+    if (hasMore) {
+        html += `
+            <div style="padding: 0.75rem 0; text-align: center;">
+                <button type="button" id="recShowMore" class="ht-btn ht-btn--ghost">
+                    Show More Recommendations
+                </button>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+
     container.querySelectorAll('[data-rec-id]').forEach(btn => {
         btn.addEventListener('click', () => {
-            const { recId } = btn.dataset;
+            const recId = btn.getAttribute('data-rec-id');
             const selected = displayRecs.find(r => r.id === recId);
             if (selected) {
                 openRecommendationModal(selected, currentTemp);
@@ -1389,7 +1432,15 @@ function renderRecommendations() {
         });
     });
 
-    // badge removed: no active count displayed
+    // Attach "Show More" handler
+    const showMoreBtn = container.querySelector('#recShowMore');
+    if (showMoreBtn) {
+        showMoreBtn.addEventListener('click', () => {
+            state.recommendationsDisplayed += state.recommendationsPageSize;
+            renderRecommendations();
+        });
+    }
+
     lucide.createIcons();
 }
 
@@ -1636,39 +1687,101 @@ function formatRelativeTime(date) {
 // ALERTS SYSTEM
 // ============================================
 function showAlert(detection) {
-    state.alerts.unshift(detection);
-    if (state.alerts.length > 20) state.alerts.pop();
+    // Add viewed tracking to alert
+    const alertWithViewed = {
+        ...detection,
+        viewed: false,
+        viewedAt: null
+    };
+    state.alerts.unshift(alertWithViewed);
+    if (state.alerts.length > 100) state.alerts.pop();
     state.alertCount = state.alerts.length;
 
     const badge = document.getElementById('alertBadge');
     badge.textContent = state.alertCount;
     badge.classList.remove('u-hidden');
 
-    const alertList = document.getElementById('alertList');
-    alertList.innerHTML = state.alerts.map(a => `
-        <button type="button" data-alert-id="${a.id}" class="ht-alert-item">
-            <div class="ht-alert-item__row">
-                <i data-lucide="alert-triangle"></i>
-                <div class="ht-alert-item__body">
-                    <div class="ht-alert-item__title">Heat stress detected</div>
-                    <div class="ht-alert-item__sub">${a.bodyTemp}°C • ${a.severity}</div>
-                </div>
-                <span class="ht-alert-item__time">${formatRelativeTime(a.timestamp)}</span>
-            </div>
-        </button>
-    `).join('');
+    renderAlerts();
+    lucide.createIcons();
+}
 
+function renderAlerts() {
+    const alertList = document.getElementById('alertList');
+    if (!alertList) return;
+
+    // Ensure the latest alerts are shown first and preserve older alerts when the user expands the list
+    if (state.alertsDisplayed === 0 && state.alerts.length > 0) {
+        state.alertsDisplayed = state.alertsPageSize;
+    }
+    const toShow = Math.min(state.alertsDisplayed, state.alerts.length);
+    const displayAlerts = state.alerts.slice(0, toShow);
+    const hasMore = toShow < state.alerts.length;
+
+    let html = '';
+    if (displayAlerts.length === 0) {
+        html = '<p class="ht-alert-panel__empty">No alerts yet</p>';
+    } else {
+        html = displayAlerts.map(a => {
+            const viewedClass = a.viewed ? 'ht-alert-item--viewed' : 'ht-alert-item--unviewed';
+            return `
+                <button type="button" data-alert-id="${a.id}" class="ht-alert-item ${viewedClass}">
+                    <div class="ht-alert-item__row">
+                        <i data-lucide="alert-triangle"></i>
+                        <div class="ht-alert-item__body">
+                            <div class="ht-alert-item__title">Heat stress detected</div>
+                            <div class="ht-alert-item__sub">${a.bodyTemp}°C • ${a.severity}</div>
+                        </div>
+                        <span class="ht-alert-item__time">${formatRelativeTime(a.timestamp)}</span>
+                    </div>
+                </button>
+            `;
+        }).join('');
+
+        // Add "Show More" button if there are more alerts
+        if (hasMore) {
+            html += `
+                <div style="padding: 0.75rem 0; text-align: center;">
+                    <button type="button" id="alertShowMore" class="ht-btn ht-btn--ghost">
+                        Show More Notifications
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    alertList.innerHTML = html;
+
+    // Attach click handlers to mark alerts as viewed
     alertList.querySelectorAll('[data-alert-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-alert-id');
-            const selected = state.alerts.find(a => a.id === id);
-            if (!selected) return;
-            const currentTemp = state.sensorHistory.temp.length > 0 ? state.sensorHistory.temp[state.sensorHistory.temp.length - 1] : null;
-            openRecommendationModal(buildRecommendationFromDetection(selected), currentTemp);
+            const alertId = btn.dataset.alertId;
+            markAlertAsViewed(alertId);
+            const alert = state.alerts.find(a => a.id === alertId);
+            if (alert) {
+                openRecommendationModal(buildRecommendationFromDetection(alert), state.sensorHistory.temp[state.sensorHistory.temp.length - 1]);
+            }
         });
     });
 
+    // Attach "Show More" handler
+    const showMoreBtn = alertList.querySelector('#alertShowMore');
+    if (showMoreBtn) {
+        showMoreBtn.addEventListener('click', () => {
+            state.alertsDisplayed += state.alertsPageSize;
+            renderAlerts();
+        });
+    }
+
     lucide.createIcons();
+}
+
+function markAlertAsViewed(alertId) {
+    const alert = state.alerts.find(a => a.id === alertId);
+    if (alert && !alert.viewed) {
+        alert.viewed = true;
+        alert.viewedAt = new Date();
+        renderAlerts();
+    }
 }
 
 function showToast(detection) {
@@ -1683,6 +1796,12 @@ function showToast(detection) {
     time.textContent = formatRelativeTime(detection.timestamp);
 
     toast.classList.add('is-visible');
+
+    // Mark as viewed when user clicks the toast
+    const toastCard = toast.querySelector('.ht-toast__card');
+    if (toastCard) {
+        toastCard.style.cursor = 'pointer';
+    }
 
     setTimeout(() => {
         toast.classList.remove('is-visible');
@@ -2119,11 +2238,15 @@ function setupEventListeners() {
         toast.classList.remove('is-visible');
     });
 
-    // Click toast to open recommendation details for that alert
+    // Click toast to open recommendation details and mark as viewed
     document.getElementById('alertToast').addEventListener('click', (e) => {
         if (e.target.closest('#closeToast')) return;
         const detection = state.lastToastDetection;
         if (!detection) return;
+        // Mark as viewed if it has an id
+        if (detection.id) {
+            markAlertAsViewed(detection.id);
+        }
         const currentTemp = state.sensorHistory.temp.length > 0 ? state.sensorHistory.temp[state.sensorHistory.temp.length - 1] : null;
         openRecommendationModal(buildRecommendationFromDetection(detection), currentTemp);
     });
@@ -2151,14 +2274,20 @@ function setupEventListeners() {
 
     document.getElementById('logCustomStart').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomStart');
-        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+        if (el) {
+            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+            updateCustomDateDisplay(el);
+        }
         state.currentPage = 1;
         renderDetectionLogs();
     });
 
     document.getElementById('logCustomEnd').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomEnd');
-        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+        if (el) {
+            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+            updateCustomDateDisplay(el);
+        }
         state.currentPage = 1;
         renderDetectionLogs();
     });
