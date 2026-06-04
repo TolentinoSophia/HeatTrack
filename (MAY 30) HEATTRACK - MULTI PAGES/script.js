@@ -2366,7 +2366,8 @@ function setupEventListeners() {
         let startPickerTouchTime = 0;
         const openStartPicker = (e) => {
             if (!startInput || e.target === startInput) return;
-            if (e.type === 'touchend') {
+            const isTouchOpen = e.type === 'pointerdown' ? e.pointerType === 'touch' : e.type === 'touchstart';
+            if (isTouchOpen) {
                 e.preventDefault();
                 e.stopPropagation();
                 startPickerTouchTime = Date.now();
@@ -2377,7 +2378,7 @@ function setupEventListeners() {
                 }
                 return;
             }
-            if (e.type === 'click' && Date.now() - startPickerTouchTime < 500) {
+            if (e.type === 'click' && Date.now() - startPickerTouchTime < 700) {
                 startPickerTouchTime = 0;
                 return;
             }
@@ -2389,7 +2390,9 @@ function setupEventListeners() {
         };
 
         logCustomStartContainer.addEventListener('click', openStartPicker);
-        logCustomStartContainer.addEventListener('touchend', openStartPicker, { passive: false });
+        logCustomStartContainer.addEventListener('pointerdown', openStartPicker, { passive: false });
+        startInput.addEventListener('pointerdown', (e) => e.stopPropagation());
+        startInput.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: false });
     }
 
     const logCustomEndContainer = document.getElementById('logCustomEnd')?.parentElement;
@@ -2398,7 +2401,8 @@ function setupEventListeners() {
         let endPickerTouchTime = 0;
         const openEndPicker = (e) => {
             if (!endInput || e.target === endInput) return;
-            if (e.type === 'touchend') {
+            const isTouchOpen = e.type === 'pointerdown' ? e.pointerType === 'touch' : e.type === 'touchstart';
+            if (isTouchOpen) {
                 e.preventDefault();
                 e.stopPropagation();
                 endPickerTouchTime = Date.now();
@@ -2409,7 +2413,7 @@ function setupEventListeners() {
                 }
                 return;
             }
-            if (e.type === 'click' && Date.now() - endPickerTouchTime < 500) {
+            if (e.type === 'click' && Date.now() - endPickerTouchTime < 700) {
                 endPickerTouchTime = 0;
                 return;
             }
@@ -2421,7 +2425,9 @@ function setupEventListeners() {
         };
 
         logCustomEndContainer.addEventListener('click', openEndPicker);
-        logCustomEndContainer.addEventListener('touchend', openEndPicker, { passive: false });
+        logCustomEndContainer.addEventListener('pointerdown', openEndPicker, { passive: false });
+        endInput.addEventListener('pointerdown', (e) => e.stopPropagation());
+        endInput.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: false });
     }
 
     // Pagination
