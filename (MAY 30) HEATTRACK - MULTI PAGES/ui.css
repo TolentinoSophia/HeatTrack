@@ -2625,58 +2625,6 @@ img { max-width: 100%; height: auto; display: block; }
     padding: 0.5rem 0.6rem;
 }
 
-.ht-date-field {
-    position: relative;
-    width: 100%;
-    cursor: text;
-}
-
-.ht-date-field input[type="date"] {
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    caret-color: transparent;
-}
-
-.ht-date-field input[type="date"]::placeholder,
-.ht-date-field input[type="date"]::-webkit-input-placeholder,
-.ht-date-field input[type="date"]:-ms-input-placeholder,
-.ht-date-field input[type="date"]::-ms-input-placeholder {
-    color: transparent;
-}
-
-.ht-date-field::after {
-    content: attr(data-label);
-    position: absolute;
-    inset: 0;
-    padding: 0.5rem 0.6rem;
-    color: var(--ht-surface-400);
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    pointer-events: none;
-}
-
-.ht-date-field input[type="date"]::-webkit-datetime-edit,
-.ht-date-field input[type="date"]::-webkit-datetime-edit-fields-wrapper,
-.ht-date-field input[type="date"]::-webkit-datetime-edit-text {
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 0 transparent;
-}
-
-.ht-date-field:focus-within::after {
-    color: var(--ht-surface-100);
-}
-
-.ht-date-field input[type="date"]:focus-visible {
-    outline: none;
-    border-color: var(--ht-thermal-500);
-    box-shadow: var(--ht-focus-ring);
-}
-
 .ht-custom-range__placeholder {
     position: absolute;
     left: 0.6rem;
@@ -2687,17 +2635,54 @@ img { max-width: 100%; height: auto; display: block; }
     font-size: 0.875rem;
 }
 
+/* Small label beside date inputs to match ht-select typography */
 .ht-select-label {
     display: inline-flex;
     align-items: center;
     font-size: 10px;
     font-weight: 500;
     color: var(--ht-surface-200);
+    width: 28px;
+    flex-shrink: 0;
 }
 
 .ht-custom-range__item input:focus + .ht-custom-range__placeholder,
 .ht-custom-range__item input[data-has-value="true"] + .ht-custom-range__placeholder {
     display: none;
+}
+
+.ht-custom-range__item input[type="date"] {
+    position: relative;
+}
+
+.ht-custom-range__item input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+}
+
+/* Ensure placeholder is visible and readable on mobile */
+.ht-custom-range__item input[type="date"]::placeholder {
+    color: var(--ht-surface-300);
+    opacity: 1;
+}
+
+/* Active state for date inputs (when focused or selected) */
+.ht-custom-range__item input[type="date"].is-active,
+.ht-custom-range__item input[type="date"]:active {
+    border-color: var(--ht-thermal-500);
+    box-shadow: var(--ht-focus-ring);
+    background: linear-gradient(180deg, rgba(249, 115, 22, 0.05), rgba(249, 115, 22, 0.02));
+}
+
+/* Mobile: Add placeholder attribute display support */
+@media (max-width: 900px) {
+    .ht-custom-range__item input[type="date"] {
+        color: var(--ht-surface-200);
+    }
+    
+    .ht-custom-range__item input[type="date"]:not([value]) {
+        color: var(--ht-surface-300);
+    }
 }
 
 @media (max-width: 900px) {
@@ -2711,29 +2696,36 @@ img { max-width: 100%; height: auto; display: block; }
         width: 100%;
         justify-content: flex-start;
         align-items: stretch;
+        gap: 0.5rem;
     }
 
     .ht-log-panel .ht-toolbar .ht-select,
     .ht-log-panel .ht-toolbar button {
-        flex: 1 1 180px;
-        min-width: 0;
+        flex: 1 1 auto;
+        min-width: 140px;
+        height: 2rem;
     }
 
     .ht-log-panel .ht-toolbar .ht-custom-range {
         width: 100%;
         gap: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
     }
 
-    .ht-log-panel .ht-toolbar .ht-custom-range__item,
-    .ht-log-panel .ht-toolbar .ht-select,
-    .ht-log-panel .ht-toolbar button {
-        flex: 1 1 150px;
-        min-width: 0;
+    .ht-log-panel .ht-toolbar .ht-custom-range__item {
+        flex: 1 1 auto;
+        min-width: 140px;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
     }
 
     .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
         flex: 1 1 auto;
-        min-width: 140px;
+        min-width: 130px;
+        height: 2rem;
+        padding: 0.5rem 0.6rem;
     }
 }
 
@@ -2796,10 +2788,20 @@ img { max-width: 100%; height: auto; display: block; }
     outline: none;
     cursor: pointer;
     box-shadow: var(--ht-shadow-xs);
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
 }
 
-.ht-select:hover { border-color: rgba(249, 115, 22, 0.25); }
+.ht-select:hover { 
+    border-color: rgba(249, 115, 22, 0.25);
+}
+
+.ht-select:active,
+.ht-select.is-active { 
+    border-color: var(--ht-thermal-500);
+    box-shadow: var(--ht-focus-ring);
+    background: linear-gradient(180deg, rgba(249, 115, 22, 0.05), rgba(249, 115, 22, 0.02));
+}
+
 .ht-select:focus-visible {
     border-color: var(--ht-thermal-500);
     box-shadow: var(--ht-focus-ring);
@@ -2811,6 +2813,16 @@ img { max-width: 100%; height: auto; display: block; }
         /* keep sizing consistent on small screens */
         padding: 0.5rem 0.6rem;
         min-height: 2rem;
+        font-size: 10px;
+    }
+    
+    .ht-custom-range__item {
+        flex: 1 1 auto;
+        min-width: 140px;
+    }
+    
+    .ht-custom-range__item input[type="date"] {
+        height: 2rem;
     }
 }
 
@@ -2819,6 +2831,42 @@ img { max-width: 100%; height: auto; display: block; }
         /* keep sizing consistent on very small screens */
         padding: 0.5rem 0.6rem;
         min-height: 2rem;
+        font-size: 9px;
+    }
+    
+    .ht-log-panel .ht-toolbar {
+        gap: 0.4rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-select,
+    .ht-log-panel .ht-toolbar button {
+        flex: 1 1 auto;
+        min-width: 120px;
+        height: 2rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range {
+        width: 100%;
+        gap: 0.4rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range__item {
+        flex: 1 1 auto;
+        min-width: 120px;
+        height: 2rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
+        flex: 1 1 auto;
+        min-width: 110px;
+        height: 2rem;
+        padding: 0.45rem 0.5rem;
+        font-size: 9px;
+    }
+    
+    .ht-select-label {
+        font-size: 8px;
+        min-width: 20px;
     }
 }
 
@@ -5733,28 +5781,6 @@ html[data-boot-route="insights"] #view-analytics {
     
     .ht-select {
         padding: 0.5rem 0.6rem;
-    }
-    
-    .ht-log-panel .ht-toolbar {
-        gap: 0.5rem;
-    }
-    
-    .ht-log-panel .ht-toolbar .ht-select,
-    .ht-log-panel .ht-toolbar .ht-custom-range__item,
-    .ht-log-panel .ht-toolbar button {
-        flex: 1 1 150px;
-        min-width: 0;
-        min-height: 2.5rem;
-    }
-    
-    .ht-log-panel .ht-toolbar .ht-custom-range {
-        width: 100%;
-        gap: 0.35rem;
-    }
-
-    .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
-        flex: 1 1 auto;
-        min-width: 140px;
     }
 }
 
