@@ -618,17 +618,6 @@ function getTodayInputValue() {
     return `${today.getFullYear()}-${month}-${day}`;
 }
 
-function formatDateForDisplay(isoDateString) {
-    if (!isoDateString) return '';
-    const [year, month, day] = isoDateString.split('-');
-    return `${month}/${day}/${year}`;
-}
-
-function formatDateInput(isoDateString) {
-    if (!isoDateString) return '';
-    return formatDateForDisplay(isoDateString);
-}
-
 function setCustomRangeMaxDate() {
     const maxValue = getTodayInputValue();
     const startInput = document.getElementById('logCustomStart');
@@ -2251,125 +2240,28 @@ function setupEventListeners() {
 
     // Log filter
     document.getElementById('logFilter').addEventListener('change', () => {
-        const filterEl = document.getElementById('logFilter');
-        // Remove hover/active state after selection
-        filterEl?.classList.remove('is-active');
-        filterEl?.blur();
-        suppressHoverTemporarily();
-        
         state.currentPage = 1;
         renderDetectionLogs();
     });
 
-    document.getElementById('logFilter').addEventListener('focus', (e) => {
-        const el = document.getElementById('logFilter');
-        if (el) el.classList.add('is-active');
-    });
-
-    document.getElementById('logFilter').addEventListener('blur', (e) => {
-        const el = document.getElementById('logFilter');
-        if (el) el.classList.remove('is-active');
-    });
-
     document.getElementById('logDateRange').addEventListener('change', () => {
-        const rangeEl = document.getElementById('logDateRange');
-        // Remove hover/active state after selection
-        rangeEl?.classList.remove('is-active');
-        rangeEl?.blur();
-        suppressHoverTemporarily();
-        
         state.currentPage = 1;
         toggleCustomLogRangeInputs();
         renderDetectionLogs();
     });
 
-    document.getElementById('logDateRange').addEventListener('focus', (e) => {
-        const el = document.getElementById('logDateRange');
-        if (el) el.classList.add('is-active');
-    });
-
-    document.getElementById('logDateRange').addEventListener('blur', (e) => {
-        const el = document.getElementById('logDateRange');
-        if (el) el.classList.remove('is-active');
-    });
-
     document.getElementById('logCustomStart').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomStart');
-        if (el) {
-            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
-            // Format and display the selected date
-            if (el.value) {
-                const formattedDate = formatDateForDisplay(el.value);
-                // Create a virtual display element if needed or update title
-                el.setAttribute('data-display', formattedDate);
-            }
-            // Remove active/hover state after selection
-            el.classList.remove('is-active');
-            el.blur();
-            suppressHoverTemporarily();
-        }
+        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
         state.currentPage = 1;
         renderDetectionLogs();
-    });
-
-    document.getElementById('logCustomStart').addEventListener('focus', (e) => {
-        const el = document.getElementById('logCustomStart');
-        if (el) el.classList.add('is-active');
-    });
-
-    document.getElementById('logCustomStart').addEventListener('blur', (e) => {
-        const el = document.getElementById('logCustomStart');
-        if (el) el.classList.remove('is-active');
-    });
-
-    document.getElementById('logCustomStart').addEventListener('click', (e) => {
-        const el = document.getElementById('logCustomStart');
-        if (el) {
-            el.focus();
-            // Open the date picker if showPicker is available (modern browsers)
-            if (typeof el.showPicker === 'function') {
-                el.showPicker();
-            }
-        }
     });
 
     document.getElementById('logCustomEnd').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomEnd');
-        if (el) {
-            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
-            // Format and display the selected date
-            if (el.value) {
-                const formattedDate = formatDateForDisplay(el.value);
-                el.setAttribute('data-display', formattedDate);
-            }
-            // Remove active/hover state after selection
-            el.classList.remove('is-active');
-            el.blur();
-            suppressHoverTemporarily();
-        }
+        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
         state.currentPage = 1;
         renderDetectionLogs();
-    });
-
-    document.getElementById('logCustomEnd').addEventListener('focus', (e) => {
-        const el = document.getElementById('logCustomEnd');
-        if (el) el.classList.add('is-active');
-    });
-
-    document.getElementById('logCustomEnd').addEventListener('blur', (e) => {
-        const el = document.getElementById('logCustomEnd');
-        if (el) el.classList.remove('is-active');
-    });
-
-    document.getElementById('logCustomEnd').addEventListener('click', (e) => {
-        const el = document.getElementById('logCustomEnd');
-        if (el) {
-            el.focus();
-            // Open the date picker if showPicker is available (modern browsers)
-            if (typeof el.showPicker === 'function') {
-                el.showPicker();
-            }
-        }
     });
 
     // Pagination
