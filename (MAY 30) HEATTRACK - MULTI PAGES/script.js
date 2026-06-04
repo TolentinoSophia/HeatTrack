@@ -2348,22 +2348,36 @@ function setupEventListeners() {
     // Make date picker containers clickable to open the date picker
     const logCustomStartContainer = document.getElementById('logCustomStart')?.parentElement;
     if (logCustomStartContainer) {
-        logCustomStartContainer.addEventListener('click', (e) => {
-            // Only trigger if clicking on the container, label, or other elements, not the input itself
-            if (e.target !== document.getElementById('logCustomStart')) {
-                document.getElementById('logCustomStart').click();
+        const startInput = document.getElementById('logCustomStart');
+        const openStartPicker = (e) => {
+            if (!startInput || e.target === startInput) return;
+            e.preventDefault();
+            if (typeof startInput.showPicker === 'function') {
+                startInput.showPicker();
+            } else {
+                startInput.focus();
             }
-        });
+        };
+
+        logCustomStartContainer.addEventListener('click', openStartPicker);
+        logCustomStartContainer.addEventListener('touchstart', openStartPicker, { passive: false });
     }
 
     const logCustomEndContainer = document.getElementById('logCustomEnd')?.parentElement;
     if (logCustomEndContainer) {
-        logCustomEndContainer.addEventListener('click', (e) => {
-            // Only trigger if clicking on the container, label, or other elements, not the input itself
-            if (e.target !== document.getElementById('logCustomEnd')) {
-                document.getElementById('logCustomEnd').click();
+        const endInput = document.getElementById('logCustomEnd');
+        const openEndPicker = (e) => {
+            if (!endInput || e.target === endInput) return;
+            e.preventDefault();
+            if (typeof endInput.showPicker === 'function') {
+                endInput.showPicker();
+            } else {
+                endInput.focus();
             }
-        });
+        };
+
+        logCustomEndContainer.addEventListener('click', openEndPicker);
+        logCustomEndContainer.addEventListener('touchstart', openEndPicker, { passive: false });
     }
 
     // Pagination
