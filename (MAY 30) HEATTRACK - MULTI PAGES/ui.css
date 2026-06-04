@@ -2673,7 +2673,7 @@ img { max-width: 100%; height: auto; display: block; }
 .ht-select-label {
     display: inline-flex;
     align-items: center;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--ht-surface-200);
 }
@@ -2752,9 +2752,14 @@ input[type="date"] {
     .ht-log-panel .ht-toolbar .ht-custom-range {
         width: 100%;
         gap: 0.5rem;
+        align-items: stretch;
     }
 
-    .ht-log-panel .ht-toolbar .ht-custom-range .ht-select,
+    .ht-log-panel .ht-toolbar .ht-custom-range__item {
+        align-items: stretch;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range__item .ht-select,
     .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
         min-height: 2rem;
         height: 2rem;
