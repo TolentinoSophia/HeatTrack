@@ -2626,20 +2626,47 @@ img { max-width: 100%; height: auto; display: block; }
     gap: 0.5rem;
 }
 .ht-custom-range__item .ht-select {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
     min-width: 0;
     width: 100%;
     max-width: none;
     padding: 0.5rem 0.6rem;
+    min-height: 2rem;
+    height: 2rem;
+}
+.ht-custom-range__item .ht-select input[type="date"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-family: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    padding: 0;
+    margin: 0;
+    outline: none;
+    min-height: 0;
+    height: 100%;
 }
 
 .ht-custom-range__placeholder {
+    display: none;
     position: absolute;
     left: 0.6rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--ht-surface-300);
     pointer-events: none;
-    font-size: 0.875rem;
+    font: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
 }
 
 /* Small label beside date inputs to match ht-select typography */
@@ -2663,19 +2690,6 @@ input[type="date"]::placeholder {
     opacity: 1;
 }
 
-/* Keep empty date inputs visible on mobile and supported browsers */
-input[type="date"][data-has-value="false"] {
-    color: var(--ht-surface-400);
-}
-input[type="date"][data-has-value="false"]::-webkit-datetime-edit,
-input[type="date"][data-has-value="false"]::-webkit-datetime-edit-day-field,
-input[type="date"][data-has-value="false"]::-webkit-datetime-edit-month-field,
-input[type="date"][data-has-value="false"]::-webkit-datetime-edit-year-field,
-input[type="date"][data-has-value="false"]::-webkit-datetime-edit-text {
-    color: var(--ht-surface-400);
-    opacity: 1;
-}
-
 /* Ensure placeholder is visible on all platforms and mobile devices */
 input[type="date"]::-webkit-calendar-picker-indicator {
     opacity: 0.7;
@@ -2694,25 +2708,6 @@ input[type="date"] {
 /* Display formatted date when value is selected (data-display-date attribute) */
 input[type="date"][data-display-date]:not([data-display-date=""]) {
     color: var(--ht-surface-200);
-}
-
-/* Show a numeric formatted date overlay using the parent container's attribute
-   This avoids adding extra markup while allowing us to render mm/dd/yyyy consistently
-   on mobile where the native control may display localized text. */
-.ht-custom-range__item[data-display-date]:not([data-display-date=""])::after {
-    content: attr(data-display-date);
-    position: absolute;
-    left: 0.6rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--ht-surface-200);
-    pointer-events: none;
-    font-size: 0.875rem;
-}
-
-/* Hide the visual placeholder when the parent shows a display date */
-.ht-custom-range__item[data-has-value="true"] .ht-custom-range__placeholder {
-    display: none;
 }
 
 @media (max-width: 900px) {
@@ -2739,20 +2734,37 @@ input[type="date"][data-display-date]:not([data-display-date=""]) {
         gap: 0.5rem;
     }
 
+    .ht-log-panel .ht-toolbar .ht-custom-range .ht-select,
+    .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
+        min-height: 2rem;
+        height: 2rem;
+        line-height: 1.2;
+        box-sizing: border-box;
+    }
+
     .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
         flex: 1 1 auto;
         min-width: 150px;
+        height: 2rem;
+    }
+}
+
+@media (max-width: 900px) and (hover: none) and (pointer: coarse) {
+    .ht-log-panel .ht-toolbar .ht-custom-range__placeholder {
+        display: block;
     }
 }
 
 @media (min-width: 901px) {
     .ht-log-panel .ht-toolbar .ht-custom-range__item {
-        flex: 1 1 8rem;
+        flex: 0 0 8rem;
+        width: 8rem;
         min-width: 8rem;
     }
 
     .ht-log-panel .ht-toolbar .ht-custom-range__item:nth-child(2) {
-        flex: 1 1 8.8rem;
+        flex: 0 0 8.8rem;
+        width: 8.8rem;
         min-width: 8.8rem;
     }
 }
@@ -2836,17 +2848,6 @@ input[type="date"][data-display-date]:not([data-display-date=""]) {
         padding: 0.5rem 0.6rem;
         min-height: 2rem;
     }
-
-    /* Ensure custom range inputs match other ht-select controls in mobile toolbar */
-    .ht-custom-range__item .ht-select {
-        padding: 0.5rem 0.6rem;
-        min-height: 2rem;
-        line-height: 1.2;
-        box-sizing: border-box;
-        display: block;
-        width: 100%;
-        height: auto;
-    }
     
     /* Enhance date input placeholder visibility on tablets */
     input[type="date"]::placeholder {
@@ -2866,15 +2867,6 @@ input[type="date"][data-display-date]:not([data-display-date=""]) {
         /* keep sizing consistent on very small screens */
         padding: 0.5rem 0.6rem;
         min-height: 2rem;
-    }
-    .ht-custom-range__item .ht-select {
-        padding: 0.5rem 0.6rem;
-        min-height: 2rem;
-        line-height: 1.2;
-        box-sizing: border-box;
-        display: block;
-        width: 100%;
-        height: auto;
     }
     
     /* Enhance date input placeholder visibility on mobile phones */
@@ -5823,6 +5815,12 @@ html[data-boot-route="insights"] #view-analytics {
     .ht-log-panel .ht-toolbar .ht-custom-range {
         width: 100%;
         gap: 0.35rem;
+    }
+
+    .ht-log-panel .ht-toolbar .ht-custom-range .ht-select,
+    .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
+        min-height: 2rem;
+        height: 2rem;
     }
 
     .ht-log-panel .ht-toolbar .ht-custom-range input[type="date"] {
