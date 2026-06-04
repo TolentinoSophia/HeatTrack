@@ -1315,6 +1315,13 @@ img { max-width: 100%; height: auto; display: block; }
     color: var(--ht-thermal-700);
     box-shadow: var(--ht-shadow-xs);
 }
+
+.ht-btn--ghost:hover {
+    background: rgba(249, 115, 22, 0.18);
+    border-color: rgba(249, 115, 22, 0.42);
+    color: var(--ht-thermal-700);
+}
+
 .ht-btn--ghost:focus-visible {
     outline: none;
     box-shadow: var(--ht-focus-ring);
@@ -2653,6 +2660,19 @@ img { max-width: 100%; height: auto; display: block; }
 input[type="date"]::placeholder {
     color: var(--ht-surface-400);
     font-size: 0.875rem;
+    opacity: 1;
+}
+
+/* Keep empty date inputs visible on mobile and supported browsers */
+input[type="date"][data-has-value="false"] {
+    color: var(--ht-surface-400);
+}
+input[type="date"][data-has-value="false"]::-webkit-datetime-edit,
+input[type="date"][data-has-value="false"]::-webkit-datetime-edit-day-field,
+input[type="date"][data-has-value="false"]::-webkit-datetime-edit-month-field,
+input[type="date"][data-has-value="false"]::-webkit-datetime-edit-year-field,
+input[type="date"][data-has-value="false"]::-webkit-datetime-edit-text {
+    color: var(--ht-surface-400);
     opacity: 1;
 }
 
