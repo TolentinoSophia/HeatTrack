@@ -2273,77 +2273,83 @@ function setupEventListeners() {
         renderDetectionLogs();
     });
 
-    document.getElementById('logCustomStart').addEventListener('focus', () => {
-        const el = document.getElementById('logCustomStart');
-        if (el) el.classList.add('is-active');
-    });
+    const logCustomStartInput = document.getElementById('logCustomStart');
+    const logCustomStartWrapper = logCustomStartInput?.closest('.ht-select');
 
-    document.getElementById('logCustomStart').addEventListener('blur', () => {
-        const el = document.getElementById('logCustomStart');
-        if (el) el.classList.remove('is-active');
-    });
+    if (logCustomStartInput) {
+        logCustomStartInput.addEventListener('focus', () => {
+            logCustomStartWrapper?.classList.add('is-active');
+        });
 
-    document.getElementById('logCustomStart').addEventListener('change', (e) => {
-        const el = document.getElementById('logCustomStart');
-        if (el) {
-            // Validate and prevent future dates in mobile mode
-            if (el.value) {
-                const selectedDate = new Date(el.value);
-                const today = new Date();
-                today.setHours(23, 59, 59, 999);
-                
-                if (selectedDate > today) {
-                    // Reset to today if a future date was selected
-                    el.value = getTodayInputValue();
+        logCustomStartInput.addEventListener('blur', () => {
+            logCustomStartWrapper?.classList.remove('is-active');
+        });
+
+        logCustomStartInput.addEventListener('change', () => {
+            const el = logCustomStartInput;
+            if (el) {
+                // Validate and prevent future dates in mobile mode
+                if (el.value) {
+                    const selectedDate = new Date(el.value);
+                    const today = new Date();
+                    today.setHours(23, 59, 59, 999);
+                    
+                    if (selectedDate > today) {
+                        // Reset to today if a future date was selected
+                        el.value = getTodayInputValue();
+                    }
                 }
+                // Format and display the selected date in mm/dd/yyyy format
+                const formattedDate = formatDateToDisplay(el.value);
+                el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+                el.setAttribute('data-display-date', formattedDate);
+                // Remove active state after selection
+                logCustomStartWrapper?.classList.remove('is-active');
+                el.blur();
             }
-            // Format and display the selected date in mm/dd/yyyy format
-            const formattedDate = formatDateToDisplay(el.value);
-            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
-            el.setAttribute('data-display-date', formattedDate);
-            // Remove active state after selection
-            el.classList.remove('is-active');
-            el.blur();
-        }
-        state.currentPage = 1;
-        renderDetectionLogs();
-    });
+            state.currentPage = 1;
+            renderDetectionLogs();
+        });
+    }
 
-    document.getElementById('logCustomEnd').addEventListener('focus', () => {
-        const el = document.getElementById('logCustomEnd');
-        if (el) el.classList.add('is-active');
-    });
+    const logCustomEndInput = document.getElementById('logCustomEnd');
+    const logCustomEndWrapper = logCustomEndInput?.closest('.ht-select');
 
-    document.getElementById('logCustomEnd').addEventListener('blur', () => {
-        const el = document.getElementById('logCustomEnd');
-        if (el) el.classList.remove('is-active');
-    });
+    if (logCustomEndInput) {
+        logCustomEndInput.addEventListener('focus', () => {
+            logCustomEndWrapper?.classList.add('is-active');
+        });
 
-    document.getElementById('logCustomEnd').addEventListener('change', (e) => {
-        const el = document.getElementById('logCustomEnd');
-        if (el) {
-            // Validate and prevent future dates in mobile mode
-            if (el.value) {
-                const selectedDate = new Date(el.value);
-                const today = new Date();
-                today.setHours(23, 59, 59, 999);
-                
-                if (selectedDate > today) {
-                    // Reset to today if a future date was selected
-                    el.value = getTodayInputValue();
+        logCustomEndInput.addEventListener('blur', () => {
+            logCustomEndWrapper?.classList.remove('is-active');
+        });
+
+        logCustomEndInput.addEventListener('change', () => {
+            const el = logCustomEndInput;
+            if (el) {
+                // Validate and prevent future dates in mobile mode
+                if (el.value) {
+                    const selectedDate = new Date(el.value);
+                    const today = new Date();
+                    today.setHours(23, 59, 59, 999);
+                    
+                    if (selectedDate > today) {
+                        // Reset to today if a future date was selected
+                        el.value = getTodayInputValue();
+                    }
                 }
+                // Format and display the selected date in mm/dd/yyyy format
+                const formattedDate = formatDateToDisplay(el.value);
+                el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+                el.setAttribute('data-display-date', formattedDate);
+                // Remove active state after selection
+                logCustomEndWrapper?.classList.remove('is-active');
+                el.blur();
             }
-            // Format and display the selected date in mm/dd/yyyy format
-            const formattedDate = formatDateToDisplay(el.value);
-            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
-            el.setAttribute('data-display-date', formattedDate);
-            // Remove active state after selection
-            el.classList.remove('is-active');
-            el.blur();
-        }
-        state.currentPage = 1;
-        renderDetectionLogs();
-    });
+            state.currentPage = 1;
+            renderDetectionLogs();
+        });
+    }
 
     // Make date picker containers clickable to open the date picker without immediately closing it on mobile.
     const logCustomStartContainer = document.getElementById('logCustomStart')?.parentElement;
@@ -2352,7 +2358,7 @@ function setupEventListeners() {
         let startPickerTouchTime = 0;
         const openStartPicker = (e) => {
             if (!startInput || e.target === startInput) return;
-            if (e.type === 'touchend') {
+            if (e.type === 'touchstart') {
                 e.preventDefault();
                 e.stopPropagation();
                 startPickerTouchTime = Date.now();
@@ -2368,7 +2374,7 @@ function setupEventListeners() {
         };
 
         logCustomStartContainer.addEventListener('click', openStartPicker);
-        logCustomStartContainer.addEventListener('touchend', openStartPicker, { passive: false });
+        logCustomStartContainer.addEventListener('touchstart', openStartPicker, { passive: false });
     }
 
     const logCustomEndContainer = document.getElementById('logCustomEnd')?.parentElement;
@@ -2377,7 +2383,7 @@ function setupEventListeners() {
         let endPickerTouchTime = 0;
         const openEndPicker = (e) => {
             if (!endInput || e.target === endInput) return;
-            if (e.type === 'touchend') {
+            if (e.type === 'touchstart') {
                 e.preventDefault();
                 e.stopPropagation();
                 endPickerTouchTime = Date.now();
@@ -2393,7 +2399,7 @@ function setupEventListeners() {
         };
 
         logCustomEndContainer.addEventListener('click', openEndPicker);
-        logCustomEndContainer.addEventListener('touchend', openEndPicker, { passive: false });
+        logCustomEndContainer.addEventListener('touchstart', openEndPicker, { passive: false });
     }
 
     // Pagination
