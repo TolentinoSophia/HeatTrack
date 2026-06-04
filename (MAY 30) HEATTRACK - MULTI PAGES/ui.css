@@ -2628,9 +2628,19 @@ img { max-width: 100%; height: auto; display: block; }
 .ht-date-field {
     position: relative;
     width: 100%;
+    cursor: text;
 }
 
 .ht-date-field input[type="date"] {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    caret-color: transparent;
+}
+
+.ht-date-field input[type="date"]::placeholder,
+.ht-date-field input[type="date"]::-webkit-input-placeholder,
+.ht-date-field input[type="date"]:-ms-input-placeholder,
+.ht-date-field input[type="date"]::-ms-input-placeholder {
     color: transparent;
 }
 
@@ -2653,6 +2663,18 @@ img { max-width: 100%; height: auto; display: block; }
 .ht-date-field input[type="date"]::-webkit-datetime-edit-fields-wrapper,
 .ht-date-field input[type="date"]::-webkit-datetime-edit-text {
     color: transparent;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 0 transparent;
+}
+
+.ht-date-field:focus-within::after {
+    color: var(--ht-surface-100);
+}
+
+.ht-date-field input[type="date"]:focus-visible {
+    outline: none;
+    border-color: var(--ht-thermal-500);
+    box-shadow: var(--ht-focus-ring);
 }
 
 .ht-custom-range__placeholder {
@@ -2665,7 +2687,6 @@ img { max-width: 100%; height: auto; display: block; }
     font-size: 0.875rem;
 }
 
-/* Small label beside date inputs to match ht-select typography */
 .ht-select-label {
     display: inline-flex;
     align-items: center;
