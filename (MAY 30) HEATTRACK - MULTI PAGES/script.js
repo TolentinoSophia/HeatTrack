@@ -618,14 +618,15 @@ function getTodayInputValue() {
     return `${today.getFullYear()}-${month}-${day}`;
 }
 
-function clampDateToToday(input) {
-    if (!input || !input.value) return;
-    const maxValue = getTodayInputValue();
-    if (input.value > maxValue) {
-        input.value = maxValue;
-        input.setAttribute('data-has-value', 'true');
-        updateCustomDateDisplay(input);
-    }
+function formatDateForDisplay(isoDateString) {
+    if (!isoDateString) return '';
+    const [year, month, day] = isoDateString.split('-');
+    return `${month}/${day}/${year}`;
+}
+
+function formatDateInput(isoDateString) {
+    if (!isoDateString) return '';
+    return formatDateForDisplay(isoDateString);
 }
 
 function setCustomRangeMaxDate() {
@@ -634,23 +635,6 @@ function setCustomRangeMaxDate() {
     const endInput = document.getElementById('logCustomEnd');
     if (startInput) startInput.max = maxValue;
     if (endInput) endInput.max = maxValue;
-}
-
-function formatDateForDisplay(value) {
-    if (!value) return 'MM/DD/YYYY';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'MM/DD/YYYY';
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${mm}/${dd}/${yyyy}`;
-}
-
-function updateCustomDateDisplay(input) {
-    if (!input) return;
-    const wrapper = input.closest('.ht-date-field');
-    if (!wrapper) return;
-    wrapper.dataset.label = formatDateForDisplay(input.value);
 }
 
 function getLogDateBounds() {
@@ -704,11 +688,6 @@ function toggleCustomLogRangeInputs() {
     const customRange = document.getElementById('logCustomRange');
     if (customRange) {
         customRange.classList.toggle('u-hidden', !showCustom);
-    }
-    if (showCustom) {
-        setCustomRangeMaxDate();
-        updateCustomDateDisplay(document.getElementById('logCustomStart'));
-        updateCustomDateDisplay(document.getElementById('logCustomEnd'));
     }
 }
 
@@ -2271,75 +2250,126 @@ function setupEventListeners() {
     });
 
     // Log filter
-    document.getElementById('logFilter').addEventListener('change', (e) => {
+    document.getElementById('logFilter').addEventListener('change', () => {
+        const filterEl = document.getElementById('logFilter');
+        // Remove hover/active state after selection
+        filterEl?.classList.remove('is-active');
+        filterEl?.blur();
+        suppressHoverTemporarily();
+        
         state.currentPage = 1;
         renderDetectionLogs();
-        if (e.target instanceof HTMLElement) e.target.blur();
     });
 
-    document.getElementById('logDateRange').addEventListener('change', (e) => {
+    document.getElementById('logFilter').addEventListener('focus', (e) => {
+        const el = document.getElementById('logFilter');
+        if (el) el.classList.add('is-active');
+    });
+
+    document.getElementById('logFilter').addEventListener('blur', (e) => {
+        const el = document.getElementById('logFilter');
+        if (el) el.classList.remove('is-active');
+    });
+
+    document.getElementById('logDateRange').addEventListener('change', () => {
+        const rangeEl = document.getElementById('logDateRange');
+        // Remove hover/active state after selection
+        rangeEl?.classList.remove('is-active');
+        rangeEl?.blur();
+        suppressHoverTemporarily();
+        
         state.currentPage = 1;
         toggleCustomLogRangeInputs();
         renderDetectionLogs();
-        if (e.target instanceof HTMLElement) e.target.blur();
+    });
+
+    document.getElementById('logDateRange').addEventListener('focus', (e) => {
+        const el = document.getElementById('logDateRange');
+        if (el) el.classList.add('is-active');
+    });
+
+    document.getElementById('logDateRange').addEventListener('blur', (e) => {
+        const el = document.getElementById('logDateRange');
+        if (el) el.classList.remove('is-active');
     });
 
     document.getElementById('logCustomStart').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomStart');
         if (el) {
-            clampDateToToday(el);
             el.setAttribute('data-has-value', el.value ? 'true' : 'false');
-            updateCustomDateDisplay(el);
+            // Format and display the selected date
+            if (el.value) {
+                const formattedDate = formatDateForDisplay(el.value);
+                // Create a virtual display element if needed or update title
+                el.setAttribute('data-display', formattedDate);
+            }
+            // Remove active/hover state after selection
+            el.classList.remove('is-active');
+            el.blur();
+            suppressHoverTemporarily();
         }
         state.currentPage = 1;
         renderDetectionLogs();
-        if (e.target instanceof HTMLElement) e.target.blur();
+    });
+
+    document.getElementById('logCustomStart').addEventListener('focus', (e) => {
+        const el = document.getElementById('logCustomStart');
+        if (el) el.classList.add('is-active');
+    });
+
+    document.getElementById('logCustomStart').addEventListener('blur', (e) => {
+        const el = document.getElementById('logCustomStart');
+        if (el) el.classList.remove('is-active');
+    });
+
+    document.getElementById('logCustomStart').addEventListener('click', (e) => {
+        const el = document.getElementById('logCustomStart');
+        if (el) {
+            el.focus();
+            // Open the date picker if showPicker is available (modern browsers)
+            if (typeof el.showPicker === 'function') {
+                el.showPicker();
+            }
+        }
     });
 
     document.getElementById('logCustomEnd').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomEnd');
         if (el) {
-            clampDateToToday(el);
             el.setAttribute('data-has-value', el.value ? 'true' : 'false');
-            updateCustomDateDisplay(el);
+            // Format and display the selected date
+            if (el.value) {
+                const formattedDate = formatDateForDisplay(el.value);
+                el.setAttribute('data-display', formattedDate);
+            }
+            // Remove active/hover state after selection
+            el.classList.remove('is-active');
+            el.blur();
+            suppressHoverTemporarily();
         }
         state.currentPage = 1;
         renderDetectionLogs();
-        if (e.target instanceof HTMLElement) e.target.blur();
     });
 
-    function removeHtSelectHoverState(element) {
-        if (!(element instanceof HTMLElement)) return;
-        element.blur();
-        requestAnimationFrame(() => {
-            if (document.activeElement === element) {
-                element.blur();
-            }
-        });
-    }
-
-    document.querySelectorAll('.ht-select').forEach((control) => {
-        control.addEventListener('change', () => removeHtSelectHoverState(control));
-        control.addEventListener('pointerup', (event) => {
-            if (event.pointerType === 'touch') {
-                setTimeout(() => removeHtSelectHoverState(control), 0);
-            }
-        });
+    document.getElementById('logCustomEnd').addEventListener('focus', (e) => {
+        const el = document.getElementById('logCustomEnd');
+        if (el) el.classList.add('is-active');
     });
 
-    document.querySelectorAll('.ht-date-field').forEach((wrapper) => {
-        wrapper.addEventListener('click', (event) => {
-            const input = wrapper.querySelector('input[type="date"]');
-            if (input) {
-                setCustomRangeMaxDate();
-                clampDateToToday(input);
-                input.focus();
-                // If the browser supports showPicker, open the calendar immediately.
-                if (typeof input.showPicker === 'function') {
-                    input.showPicker();
-                }
+    document.getElementById('logCustomEnd').addEventListener('blur', (e) => {
+        const el = document.getElementById('logCustomEnd');
+        if (el) el.classList.remove('is-active');
+    });
+
+    document.getElementById('logCustomEnd').addEventListener('click', (e) => {
+        const el = document.getElementById('logCustomEnd');
+        if (el) {
+            el.focus();
+            // Open the date picker if showPicker is available (modern browsers)
+            if (typeof el.showPicker === 'function') {
+                el.showPicker();
             }
-        });
+        }
     });
 
     // Pagination
