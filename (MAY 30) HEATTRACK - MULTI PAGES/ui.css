@@ -2695,8 +2695,16 @@ input[type="date"]::placeholder {
         display: block;
     }
 
-    .ht-custom-range__item input[data-has-value="true"] {
+    .ht-custom-range__item input[data-has-value="true"],
+    .ht-custom-range__item input[type="date"][data-display-date]:not([data-display-date=""]) {
         color: transparent;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .ht-custom-range__item input[data-has-value="true"]::-webkit-datetime-edit,
+    .ht-custom-range__item input[data-has-value="true"]::-webkit-datetime-edit-fields-wrapper {
+        color: transparent;
+        -webkit-text-fill-color: transparent;
     }
 }
 
@@ -2716,8 +2724,10 @@ input[type="date"] {
 }
 
 /* Display formatted date when value is selected (data-display-date attribute) */
-input[type="date"][data-display-date]:not([data-display-date=""]) {
-    color: var(--ht-surface-200);
+@media (hover: hover) and (pointer: fine) {
+    input[type="date"][data-display-date]:not([data-display-date=""]) {
+        color: var(--ht-surface-200);
+    }
 }
 
 @media (max-width: 900px) {
