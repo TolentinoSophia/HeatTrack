@@ -2301,18 +2301,6 @@ function setupEventListeners() {
             const formattedDate = formatDateToDisplay(el.value);
             el.setAttribute('data-has-value', el.value ? 'true' : 'false');
             el.setAttribute('data-display-date', formattedDate);
-            // Mirror formatted value and state on parent container so we can
-            // render a consistent, numeric display across mobile browsers
-            const parent = el.parentElement;
-            if (parent) {
-                if (el.value) {
-                    parent.setAttribute('data-has-value', 'true');
-                    parent.setAttribute('data-display-date', formattedDate);
-                } else {
-                    parent.setAttribute('data-has-value', 'false');
-                    parent.removeAttribute('data-display-date');
-                }
-            }
             // Remove active state after selection
             el.classList.remove('is-active');
             el.blur();
@@ -2349,18 +2337,6 @@ function setupEventListeners() {
             const formattedDate = formatDateToDisplay(el.value);
             el.setAttribute('data-has-value', el.value ? 'true' : 'false');
             el.setAttribute('data-display-date', formattedDate);
-            // Mirror formatted value and state on parent container so we can
-            // render a consistent, numeric display across mobile browsers
-            const parent = el.parentElement;
-            if (parent) {
-                if (el.value) {
-                    parent.setAttribute('data-has-value', 'true');
-                    parent.setAttribute('data-display-date', formattedDate);
-                } else {
-                    parent.setAttribute('data-has-value', 'false');
-                    parent.removeAttribute('data-display-date');
-                }
-            }
             // Remove active state after selection
             el.classList.remove('is-active');
             el.blur();
@@ -2369,45 +2345,55 @@ function setupEventListeners() {
         renderDetectionLogs();
     });
 
-    // Make date picker containers clickable to open the date picker
+    // Make date picker containers clickable to open the date picker without immediately closing it on mobile.
     const logCustomStartContainer = document.getElementById('logCustomStart')?.parentElement;
     if (logCustomStartContainer) {
         const startInput = document.getElementById('logCustomStart');
+        let startPickerTouchTime = 0;
         const openStartPicker = (e) => {
             if (!startInput || e.target === startInput) return;
-            // Avoid preventDefault which can interfere with native pickers on some mobile browsers
+            if (e.type === 'touchend') {
+                e.preventDefault();
+                e.stopPropagation();
+                startPickerTouchTime = Date.now();
+            }
+            if (e.type === 'click' && Date.now() - startPickerTouchTime < 500) {
+                return;
+            }
             if (typeof startInput.showPicker === 'function') {
                 startInput.showPicker();
             } else {
                 startInput.focus();
-                // Fallback click can nudge some browsers to open the native control
-                try { startInput.click(); } catch (err) { /* ignore */ }
             }
         };
 
         logCustomStartContainer.addEventListener('click', openStartPicker);
-        // Use touchend so the gesture is completed before opening the native picker
-        logCustomStartContainer.addEventListener('touchend', openStartPicker, { passive: true });
-        // Pointer events (where available) are a good cross-platform option
-        logCustomStartContainer.addEventListener('pointerdown', openStartPicker);
+        logCustomStartContainer.addEventListener('touchend', openStartPicker, { passive: false });
     }
 
     const logCustomEndContainer = document.getElementById('logCustomEnd')?.parentElement;
     if (logCustomEndContainer) {
         const endInput = document.getElementById('logCustomEnd');
+        let endPickerTouchTime = 0;
         const openEndPicker = (e) => {
             if (!endInput || e.target === endInput) return;
+            if (e.type === 'touchend') {
+                e.preventDefault();
+                e.stopPropagation();
+                endPickerTouchTime = Date.now();
+            }
+            if (e.type === 'click' && Date.now() - endPickerTouchTime < 500) {
+                return;
+            }
             if (typeof endInput.showPicker === 'function') {
                 endInput.showPicker();
             } else {
                 endInput.focus();
-                try { endInput.click(); } catch (err) { /* ignore */ }
             }
         };
 
         logCustomEndContainer.addEventListener('click', openEndPicker);
-        logCustomEndContainer.addEventListener('touchend', openEndPicker, { passive: true });
-        logCustomEndContainer.addEventListener('pointerdown', openEndPicker);
+        logCustomEndContainer.addEventListener('touchend', openEndPicker, { passive: false });
     }
 
     // Pagination
