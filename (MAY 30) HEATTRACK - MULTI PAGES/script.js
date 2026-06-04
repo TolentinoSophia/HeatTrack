@@ -2371,9 +2371,9 @@ function setupEventListeners() {
                 e.stopPropagation();
                 startPickerTouchTime = Date.now();
                 if (typeof startInput.showPicker === 'function') {
-                    startInput.showPicker();
+                    window.setTimeout(() => startInput.showPicker(), 0);
                 } else {
-                    startInput.focus();
+                    window.setTimeout(() => startInput.focus(), 0);
                 }
                 return;
             }
@@ -2403,9 +2403,9 @@ function setupEventListeners() {
                 e.stopPropagation();
                 endPickerTouchTime = Date.now();
                 if (typeof endInput.showPicker === 'function') {
-                    endInput.showPicker();
+                    window.setTimeout(() => endInput.showPicker(), 0);
                 } else {
-                    endInput.focus();
+                    window.setTimeout(() => endInput.focus(), 0);
                 }
                 return;
             }
