@@ -118,6 +118,13 @@ function initMobileNavMenu() {
             // Remove tap-induced hover effect after interaction
             suppressHoverTemporarily();
         }
+        // Re-apply date picker max attribute on resize for mobile responsiveness
+        setCustomRangeMaxDate();
+    });
+
+    // Re-apply date picker max attribute on device orientation change (mobile)
+    window.addEventListener('orientationchange', () => {
+        setCustomRangeMaxDate();
     });
 }
 
@@ -616,6 +623,12 @@ function getTodayInputValue() {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${today.getFullYear()}-${month}-${day}`;
+}
+
+function formatDateToDisplay(isoDateString) {
+    if (!isoDateString) return '';
+    const [year, month, day] = isoDateString.split('-');
+    return `${month}/${day}/${year}`;
 }
 
 function setCustomRangeMaxDate() {
@@ -2240,29 +2253,118 @@ function setupEventListeners() {
 
     // Log filter
     document.getElementById('logFilter').addEventListener('change', () => {
+        const el = document.getElementById('logFilter');
+        if (el) {
+            el.classList.remove('is-active');
+            el.blur();
+        }
         state.currentPage = 1;
         renderDetectionLogs();
     });
 
     document.getElementById('logDateRange').addEventListener('change', () => {
+        const el = document.getElementById('logDateRange');
+        if (el) {
+            el.classList.remove('is-active');
+            el.blur();
+        }
         state.currentPage = 1;
         toggleCustomLogRangeInputs();
         renderDetectionLogs();
     });
 
+    document.getElementById('logCustomStart').addEventListener('focus', () => {
+        const el = document.getElementById('logCustomStart');
+        if (el) el.classList.add('is-active');
+    });
+
+    document.getElementById('logCustomStart').addEventListener('blur', () => {
+        const el = document.getElementById('logCustomStart');
+        if (el) el.classList.remove('is-active');
+    });
+
     document.getElementById('logCustomStart').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomStart');
-        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+        if (el) {
+            // Validate and prevent future dates in mobile mode
+            if (el.value) {
+                const selectedDate = new Date(el.value);
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                
+                if (selectedDate > today) {
+                    // Reset to today if a future date was selected
+                    el.value = getTodayInputValue();
+                }
+            }
+            // Format and display the selected date in mm/dd/yyyy format
+            const formattedDate = formatDateToDisplay(el.value);
+            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+            el.setAttribute('data-display-date', formattedDate);
+            // Remove active state after selection
+            el.classList.remove('is-active');
+            el.blur();
+        }
         state.currentPage = 1;
         renderDetectionLogs();
     });
 
+    document.getElementById('logCustomEnd').addEventListener('focus', () => {
+        const el = document.getElementById('logCustomEnd');
+        if (el) el.classList.add('is-active');
+    });
+
+    document.getElementById('logCustomEnd').addEventListener('blur', () => {
+        const el = document.getElementById('logCustomEnd');
+        if (el) el.classList.remove('is-active');
+    });
+
     document.getElementById('logCustomEnd').addEventListener('change', (e) => {
         const el = document.getElementById('logCustomEnd');
-        if (el) el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+        if (el) {
+            // Validate and prevent future dates in mobile mode
+            if (el.value) {
+                const selectedDate = new Date(el.value);
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                
+                if (selectedDate > today) {
+                    // Reset to today if a future date was selected
+                    el.value = getTodayInputValue();
+                }
+            }
+            // Format and display the selected date in mm/dd/yyyy format
+            const formattedDate = formatDateToDisplay(el.value);
+            el.setAttribute('data-has-value', el.value ? 'true' : 'false');
+            el.setAttribute('data-display-date', formattedDate);
+            // Remove active state after selection
+            el.classList.remove('is-active');
+            el.blur();
+        }
         state.currentPage = 1;
         renderDetectionLogs();
     });
+
+    // Make date picker containers clickable to open the date picker
+    const logCustomStartContainer = document.getElementById('logCustomStart')?.parentElement;
+    if (logCustomStartContainer) {
+        logCustomStartContainer.addEventListener('click', (e) => {
+            // Only trigger if clicking on the container, label, or other elements, not the input itself
+            if (e.target !== document.getElementById('logCustomStart')) {
+                document.getElementById('logCustomStart').click();
+            }
+        });
+    }
+
+    const logCustomEndContainer = document.getElementById('logCustomEnd')?.parentElement;
+    if (logCustomEndContainer) {
+        logCustomEndContainer.addEventListener('click', (e) => {
+            // Only trigger if clicking on the container, label, or other elements, not the input itself
+            if (e.target !== document.getElementById('logCustomEnd')) {
+                document.getElementById('logCustomEnd').click();
+            }
+        });
+    }
 
     // Pagination
     document.getElementById('prevPage').addEventListener('click', () => {
