@@ -2678,9 +2678,8 @@ img { max-width: 100%; height: auto; display: block; }
     color: var(--ht-surface-200);
 }
 
-.ht-custom-range__item input:focus + .ht-custom-range__placeholder,
-.ht-custom-range__item input[data-has-value="true"] + .ht-custom-range__placeholder {
-    display: none;
+.ht-custom-range__item input[data-has-value="true"] {
+    color: inherit;
 }
 
 /* Native date input placeholder styling for mobile readability */
@@ -2688,6 +2687,17 @@ input[type="date"]::placeholder {
     color: var(--ht-surface-400);
     font-size: 0.875rem;
     opacity: 1;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .ht-custom-range__item input:focus + .ht-custom-range__placeholder,
+    .ht-custom-range__item input[data-has-value="true"] + .ht-custom-range__placeholder {
+        display: block;
+    }
+
+    .ht-custom-range__item input[data-has-value="true"] {
+        color: transparent;
+    }
 }
 
 /* Ensure placeholder is visible on all platforms and mobile devices */
