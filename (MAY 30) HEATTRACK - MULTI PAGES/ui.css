@@ -2696,6 +2696,25 @@ input[type="date"][data-display-date]:not([data-display-date=""]) {
     color: var(--ht-surface-200);
 }
 
+/* Show a numeric formatted date overlay using the parent container's attribute
+   This avoids adding extra markup while allowing us to render mm/dd/yyyy consistently
+   on mobile where the native control may display localized text. */
+.ht-custom-range__item[data-display-date]:not([data-display-date=""])::after {
+    content: attr(data-display-date);
+    position: absolute;
+    left: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ht-surface-200);
+    pointer-events: none;
+    font-size: 0.875rem;
+}
+
+/* Hide the visual placeholder when the parent shows a display date */
+.ht-custom-range__item[data-has-value="true"] .ht-custom-range__placeholder {
+    display: none;
+}
+
 @media (max-width: 900px) {
     .ht-log-panel .ht-panel__head {
         flex-direction: column;
@@ -2817,6 +2836,17 @@ input[type="date"][data-display-date]:not([data-display-date=""]) {
         padding: 0.5rem 0.6rem;
         min-height: 2rem;
     }
+
+    /* Ensure custom range inputs match other ht-select controls in mobile toolbar */
+    .ht-custom-range__item .ht-select {
+        padding: 0.5rem 0.6rem;
+        min-height: 2rem;
+        line-height: 1.2;
+        box-sizing: border-box;
+        display: block;
+        width: 100%;
+        height: auto;
+    }
     
     /* Enhance date input placeholder visibility on tablets */
     input[type="date"]::placeholder {
@@ -2836,6 +2866,15 @@ input[type="date"][data-display-date]:not([data-display-date=""]) {
         /* keep sizing consistent on very small screens */
         padding: 0.5rem 0.6rem;
         min-height: 2rem;
+    }
+    .ht-custom-range__item .ht-select {
+        padding: 0.5rem 0.6rem;
+        min-height: 2rem;
+        line-height: 1.2;
+        box-sizing: border-box;
+        display: block;
+        width: 100%;
+        height: auto;
     }
     
     /* Enhance date input placeholder visibility on mobile phones */
